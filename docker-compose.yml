@@ -1,0 +1,61 @@
+services:
+  # ---- Database container: PostgreSQL ----
+  db:
+    image: postgres:16-alpine
+    container_name: checkin_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    # healthcheck lets the backend wait until the DB is actually ready,
+    # not just "container started". Avoids a classic startup race.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - internal
+
+  # ---- Backend container: Fastify ----
+  backend:
+    build: ./backend
+    container_name: checkin_backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      PORT: 3000
+    depends_on:
+      db:
+        condition: service_healthy
+    # source mounted for hot-reload in dev; node_modules kept inside container
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    networks:
+      - internal
+
+  # ---- Frontend container: Vite dev server ----
+  frontend:
+    build: ./frontend
+    container_name: checkin_frontend
+    restart: unless-stopped
+    ports:
+      - "5173:5173"
+    depends_on:
+      - backend
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    networks:
+      - internal
+
+volumes:
+  db_data:
+
+networks:
+  internal:
+    driver: bridge

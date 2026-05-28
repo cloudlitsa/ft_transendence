@@ -1,0 +1,14 @@
+{
+  "name": "checkin-backend",
+  "version": "0.0.1",
+  "description": "Check-in app backend (skeleton)",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch src/server.js",
+    "start": "node src/server.js"
+  },
+  "dependencies": {
+    "fastify": "^4.28.1",
+    "pg": "^8.12.0"
+  }
+}

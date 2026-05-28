@@ -1,31 +1,66 @@
-_This project has been created as part of the 42 curriculum by \evmouka[, \<login2\>[, \<login3\>[...]]]._
+*This project has been created as part of the 42 curriculum by &lt;login1&gt;.*
 
-# ft_transcendence — Check-In
-
----
+# Check-in app
 
 ## Description
 
-Check-In is a web app for a small circle of friends where you can send a **check-in alert** — a "hey, I need someone to check on me" button. Friends are notified in real-time, can acknowledge, and can chat to coordinate support.
+A web app for sending check-in alerts to a small circle of trusted friends. A user
+sends a check-in ("I need a chat", "could someone reach out"), their friends are
+notified in real time, can acknowledge, and chat to coordinate.
 
-This is a social support tool, not an emergency service (see Terms of Service).
+This is **not an emergency service**. For real emergencies, call 999/112. The app
+makes this clear to users and in its Terms of Service.
 
-**Key features:**
-- Send a check-in alert to your trusted circle
-- Friends get notified instantly and can acknowledge
-- Built-in chat to coordinate without leaving the app
-- Small, intentional friend groups — not a social network
-- Real-time notifications (WebSocket)
-- Friend circle management (invite-only)
-
----
+> **Status: skeleton.** Right now the app only proves the three containers
+> (frontend, backend, database) start together and can talk to each other.
+> Features are not built yet. See `PROJECT.md` for the full plan.
 
 ## Instructions
 
-> _To be defined — compilation, installation, and execution steps will be added here._
+### Prerequisites
 
----
+- Docker and Docker Compose installed
+- Ports 5173 free on your machine
+
+### Run
+
+1. Copy the environment template and set a password:
+   ```
+   cp .env.example .env
+   # then edit .env and set a real POSTGRES_PASSWORD
+   ```
+2. Start everything with one command:
+   ```
+   docker compose up --build
+   ```
+3. Open the app in Chrome:
+   ```
+   http://localhost:5173
+   ```
+
+If the page shows `"database": "connected"`, all three containers are wired up
+correctly.
+
+To stop:
+```
+docker compose down
+```
+
+To stop and also wipe the database volume:
+```
+docker compose down -v
+```
+
+## Technical stack
+
+- Frontend: React + Vite
+- Backend: Fastify (Node.js)
+- Database: PostgreSQL
+- Orchestration: Docker Compose
 
 ## Resources
 
-> _To be defined — documentation, articles, tutorials, and AI usage details will be added here._
+- Fastify documentation
+- Vite documentation
+- PostgreSQL documentation
+- (AI usage will be documented here per the README requirements as the project develops.)
