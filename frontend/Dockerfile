@@ -12,6 +12,9 @@ RUN npm ci
 COPY . .
 
 # Drop root for the running process. node:22-alpine ships a "node" user.
+
+RUN chown -R node:node /app
+
 USER node
 
 EXPOSE 5173

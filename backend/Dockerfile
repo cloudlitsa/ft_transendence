@@ -18,6 +18,9 @@ COPY . .
 #    Switching to it means the app doesn't run as root — smaller blast
 #    radius if anything ever gets exploited. The image already owns the
 #    needed files because node is uid 1000.
+
+RUN chown -R node:node /app
+
 USER node
 
 EXPOSE 3000
