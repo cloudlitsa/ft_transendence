@@ -3,17 +3,13 @@ import pg from "pg";
 
 const fastify = Fastify({ logger: true });
 
-// One shared connection pool to Postgres.
-// DATABASE_URL is injected by docker-compose from the .env file.
+// Shared Postgres connection pool. DATABASE_URL comes from docker-compose.
 const pool = new pg.Pool({ connectionString: process.env.DATABASE_URL });
 
-// Simple endpoint the frontend calls to prove the whole chain works:
-// browser -> backend -> database -> back again.
+// Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
   try {
-    // ask the database for the current time. if this works,
-    // the backend can reach the DB.
-    const result = await pool.query("SELECT NOW() as time");
+    const result = await pool.query<{ time: Date }>("SELECT NOW() as time");
     return {
       status: "ok",
       backend: "alive",
@@ -27,15 +23,13 @@ fastify.get("/api/health", async (request, reply) => {
       status: "error",
       backend: "alive",
       database: "unreachable",
-      detail: err.message,
+      detail: (err as Error).message,
     };
   }
 });
 
-const port = process.env.PORT || 3000;
+const port = Number(process.env.PORT) || 3000;
 
-// listen on 0.0.0.0 (not localhost) so the container is reachable
-// from other containers and the host.
 fastify.listen({ port, host: "0.0.0.0" }, (err, address) => {
   if (err) {
     fastify.log.error(err);
