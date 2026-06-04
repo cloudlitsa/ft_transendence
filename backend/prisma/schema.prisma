@@ -1,0 +1,16 @@
+// Prisma schema for the check-in app.
+// Stage 2: bare configuration. Models will be added in stage 3.
+
+// The generator block tells Prisma what code to generate from this schema.
+// "prisma-client-js" is the standard typed JS/TS client.
+generator client {
+  provider = "prisma-client-js"
+}
+
+// The datasource block tells Prisma WHICH database to connect to and HOW.
+// DATABASE_URL is the same env var docker-compose already provides:
+//   postgres://checkin:password@db:5432/checkin
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
