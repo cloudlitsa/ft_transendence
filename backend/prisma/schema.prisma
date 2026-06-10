@@ -1,16 +1,148 @@
 // Prisma schema for the check-in app.
-// Stage 2: bare configuration. Models will be added in stage 3.
+//
+// Five models cover the MVP: User, Friendship, Alert, Acknowledgement, Message.
+// Design decisions match schema.sql:
+//   - UUIDs for IDs (unguessable, no easy enumeration)
+//   - Symmetric friendships (one row per pair, smaller UUID first)
+//   - Enums for status/type fields (database-enforced valid values)
+//   - Cascade deletes (deleting a user removes their data — supports GDPR)
+//   - Timestamps via @default(now()) and @updatedAt
 
-// The generator block tells Prisma what code to generate from this schema.
-// "prisma-client-js" is the standard typed JS/TS client.
 generator client {
   provider = "prisma-client-js"
 }
 
-// The datasource block tells Prisma WHICH database to connect to and HOW.
-// DATABASE_URL is the same env var docker-compose already provides:
-//   postgres://checkin:password@db:5432/checkin
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+// Enums become Postgres ENUM types — invalid values are rejected at the DB layer.
+
+enum FriendshipStatus {
+  pending
+  accepted
+  blocked
+}
+
+enum AlertType {
+  need_chat
+  not_okay
+  reach_out
+}
+
+enum AlertStatus {
+  active
+  closed
+}
+
+
+// ---------- User ----------
+// One account per row.
+// passwordHash is bcrypt output, never the plain password.
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  displayName  String   @map("display_name")
+  avatarUrl    String?  @map("avatar_url")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Inverse relations (Prisma needs to know about every direction).
+  // A user appears in friendships either as user_a, user_b, or as requester.
+  friendshipsAsA       Friendship[]      @relation("FriendshipUserA")
+  friendshipsAsB       Friendship[]      @relation("FriendshipUserB")
+  friendshipsRequested Friendship[]      @relation("FriendshipRequester")
+  alertsSent           Alert[]
+  acknowledgements     Acknowledgement[]
+  messagesSent         Message[]
+
+  @@index([email])
+  @@map("users")
+}
+
+
+// ---------- Friendship ----------
+// Symmetric: ONE row represents the relationship between user_a and user_b.
+// Convention: userIdA < userIdB always (enforced by check constraint in migration).
+// requestedBy tracks who sent the invite — matters while status is "pending".
+
+model Friendship {
+  id          String           @id @default(uuid()) @db.Uuid
+  userIdA     String           @map("user_id_a") @db.Uuid
+  userIdB     String           @map("user_id_b") @db.Uuid
+  requestedBy String           @map("requested_by") @db.Uuid
+  status      FriendshipStatus @default(pending)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  userA     User @relation("FriendshipUserA",     fields: [userIdA],     references: [id], onDelete: Cascade)
+  userB     User @relation("FriendshipUserB",     fields: [userIdB],     references: [id], onDelete: Cascade)
+  requester User @relation("FriendshipRequester", fields: [requestedBy], references: [id], onDelete: Cascade)
+
+  @@unique([userIdA, userIdB])
+  @@index([userIdA])
+  @@index([userIdB])
+  @@map("friendships")
+}
+
+
+// ---------- Alert ----------
+// A check-in sent by one user. Active until they close it.
+
+model Alert {
+  id        String      @id @default(uuid()) @db.Uuid
+  senderId  String      @map("sender_id") @db.Uuid
+  alertType AlertType   @map("alert_type")
+  status    AlertStatus @default(active)
+  note      String?
+  createdAt DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  closedAt  DateTime?   @map("closed_at") @db.Timestamptz
+
+  sender           User              @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  acknowledgements Acknowledgement[]
+  messages         Message[]
+
+  @@index([senderId])
+  @@index([status])
+  @@map("alerts")
+}
+
+
+// ---------- Acknowledgement ----------
+// A friend marking an alert "I see you". One per friend per alert.
+// Composite primary key (alertId, userId) enforces "at most one ask per friend per alert".
+
+model Acknowledgement {
+  alertId        String   @map("alert_id") @db.Uuid
+  userId         String   @map("user_id") @db.Uuid
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at") @db.Timestamptz
+
+  alert Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([alertId, userId])
+  @@index([alertId])
+  @@map("acknowledgements")
+}
+
+
+// ---------- Message ----------
+// Chat tied to an alert. Immutable — no updates, no deletes (except via cascade).
+
+model Message {
+  id        String   @id @default(uuid()) @db.Uuid
+  alertId   String   @map("alert_id") @db.Uuid
+  senderId  String   @map("sender_id") @db.Uuid
+  content   String
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  alert  Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, createdAt])
+  @@map("messages")
 }
