@@ -1,11 +1,17 @@
 import Fastify from "fastify";
+import cookie from "@fastify/cookie";
 import { prisma } from "./prisma.js";
+import { authRoutes } from "./routes/auth.js";
 
 const fastify = Fastify({ logger: true });
 
-// Health endpoint, now using Prisma instead of raw pg.
-// $queryRaw lets us run arbitrary SQL when we don't have a model yet.
-// In stage 3+ we'll use prisma.user.findMany() etc. — typed and safer.
+// Cookie support — needed to set/read the httpOnly auth cookie.
+await fastify.register(cookie);
+
+// Auth endpoints live under /api/auth/*
+await fastify.register(authRoutes, { prefix: "/api/auth" });
+
+// Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
   try {
     const result = await prisma.$queryRaw<{ time: Date }[]>`SELECT NOW() as time`;
