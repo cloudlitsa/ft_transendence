@@ -1,8 +1,8 @@
 // Auth routes: signup, login, logout, me.
 // Mounted under /api/auth by server.ts.
 
-import type { FastifyInstance } from "fastify";
-import bcrypt from "bcrypt";
+import type { FastifyInstance } from "fastify"; // for type checking not code execution
+import bcrypt from "bcryptjs"; // bcryptjs is pure JS, works in Node 18+ without native modules
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { signToken, verifyToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";

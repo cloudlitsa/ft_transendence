@@ -52,7 +52,7 @@ model User {
   updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   // Inverse relations (Prisma needs to know about every direction).
-  // A user appears in friendships either as user_a, user_b, or as requester.
+  // A user appears in friendships either as user_a, user_b, or as requester
   friendshipsAsA       Friendship[]      @relation("FriendshipUserA")
   friendshipsAsB       Friendship[]      @relation("FriendshipUserB")
   friendshipsRequested Friendship[]      @relation("FriendshipRequester")
