@@ -1,6 +1,6 @@
 # ft_transcendence — project definition
 
-*Draft. PO working doc. Will change once team is in place. Last updated: 27/05/26
+*Draft. PO working doc. Will change once team is in place. Last updated: 08/07/26
 
 ## What this is
 
@@ -77,7 +77,7 @@ Since modules must be fully functional and properly justified or they count as z
 **Cybersecurity / User Management (pick one)**
 - Minor: 2FA — 1 pt (genuinely useful for a trust-based app like this)
 
-That's 2+2+2+1+1+1+1+1+1 = **12 points**. Two short.
+That's 2+2+2+1+1+1+1+1+1 = **12 points**. Too short.
 
 **Options for the remaining 2 points — needs team discussion:**
 
@@ -94,12 +94,12 @@ My current preference: option 1 (the user interaction major) if the school accep
 
 Going to commit to something so we can start. Tech Lead can override once they're on the team.
 
-- Frontend: React + TypeScript + Tailwind
-- Backend: NestJS or Fastify (TypeScript on both sides means shared types)
+- Frontend: React + TypeScript + Vite + react-router-dom
+- Backend: Fastify + TypeScript (TypeScript on both sides means shared types)
 - Database: PostgreSQL with Prisma ORM
-- WebSockets: Socket.IO
-- Auth: bcrypt + JWT, plus an OAuth provider
-- Deployment: Docker Compose, HTTPS via self-signed cert for dev / Caddy or similar in front
+- WebSockets: Library choice (Socket.IO vs @fastify/websocket) still to be agreed by the team
+- Auth: bcryptjs, JWT with httpOnly cookies, Zod validation 
+- Deployment: Docker Compose
 
 Why TypeScript both sides: shared interfaces between frontend and backend save bugs. Why Postgres: relational data (users, friendships, alerts, messages) fits perfectly. Why Prisma: the ORM minor module needs an ORM that's actually used, Prisma makes that obvious.
 
@@ -114,19 +114,8 @@ If the Tech Lead wants Django / Express / something else, we can talk about it.
 
 4 people, not 5. Less coordination overhead. PO + PM + Tech Lead all double as devs.
 
-## Timeline (rough, one month)
-
-- **Week 1**: Team formation finalised. Stack agreed. Docker skeleton running with hello-world frontend + backend + DB. Auth done by end of week.
-- **Week 2**: Friends system + profiles + avatars. WebSocket layer up. First check-in alert flowing end-to-end (sender → backend → friend's screen).
-- **Week 3**: Acknowledge flow. Chat. Notifications. PWA setup.
-- **Week 4**: Polish, ToS/Privacy pages, README, OAuth, 2FA, GDPR. Mock evaluations.
-- **Extension (14 days)**: Buffer. Bug fixes. Anything that slipped. Stretch modules if we're somehow ahead.
-
-If we're behind in week 2, we cut features, not modules. If we're behind in week 3, we need to think about which module to drop. :-/
-
 ## Risks 
 
-- **No team yet.** Message posted, talking to people. Biggest single risk.
 - **Using WebSockets in production.** Plan: test it/work it on it in week 1, before depending on it.
 - **PWA push notifications on iOS are flaky.** Documented limitation, we bring it up it in the app rather than cover it.
 - **Module rejection at evaluation = 0 pts for that module.** Mitigation: aim slightly over 14 (15-16) so we have a buffer.
@@ -135,12 +124,6 @@ If we're behind in week 2, we cut features, not modules. If we're behind in week
 
 - Stack: do we all agree on TS / React / NestJS or Fastify / Postgres / Prisma?
 - Can we claim both "Standard user management" (major) and "User interaction" (major) without overlap rejection? Need to check with Yassir.
-- What's everyone's exam date? Need a shared calendar in week 1.
-- Communication channel — WhatsApp, something else?
+- Communication channel — WhatsApp, Discord?
 - Project management — GitHub Issues, Trello, plain markdown?
 
-## What I'm doing this week as PO + Dev solo
-
-1. Initialize the repo with this doc + a README stub + .gitignore.
-2. Stand up the Docker skeleton (frontend container + backend container + DB container, hello-world routes).
-3. Keep recruiting.
