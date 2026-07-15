@@ -147,5 +147,105 @@ export async function friendsRoutes(fastify: FastifyInstance) {
 
     return reply.send({ incoming, outgoing });
   });
+
+  // ---------- Validation for :id params ----------
+  const idParamSchema = z.object({
+    id: z.string().uuid("Invalid friendship id"),
+  });
+
+  // ---------- POST /api/friends/:id/accept ----------
+  fastify.post("/:id/accept", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid friendship id" });
+    }
+    const { id } = parsed.data;
+    const me = request.userId;
+
+    const friendship = await prisma.friendship.findUnique({ where: { id } });
+
+    // One error for every "you can't do this" case: row doesn't exist,
+    // you're not a participant, or it's not pending. A 404 for all of
+    // them means someone probing random UUIDs learns nothing about
+    // which friendships exist.
+    if (
+      !friendship ||
+      (friendship.userIdA !== me && friendship.userIdB !== me) ||
+      friendship.status !== "pending"
+    ) {
+      return reply.code(404).send({ error: "Request not found" });
+    }
+
+    // The sender can't accept their own request.
+    if (friendship.requestedBy === me) {
+      return reply.code(403).send({ error: "You can't accept a request you sent" });
+    }
+
+    const updated = await prisma.friendship.update({
+      where: { id },
+      data: { status: "accepted" },
+    });
+
+    return reply.send({ friendshipId: updated.id, status: updated.status });
+  });
+
+  // ---------- POST /api/friends/:id/decline ----------
+  // Decline = delete the row (design decision: soft no, sender can retry,
+  // no "declined" state to manage).
+  fastify.post("/:id/decline", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid friendship id" });
+    }
+    const { id } = parsed.data;
+    const me = request.userId;
+
+    const friendship = await prisma.friendship.findUnique({ where: { id } });
+
+    if (
+      !friendship ||
+      (friendship.userIdA !== me && friendship.userIdB !== me) ||
+      friendship.status !== "pending"
+    ) {
+      return reply.code(404).send({ error: "Request not found" });
+    }
+
+    if (friendship.requestedBy === me) {
+      // The sender "declining" their own request is really a CANCEL —
+      // legitimate, and it happens to be the same operation (delete).
+      // We allow it: sender cancels, recipient declines, same result.
+      await prisma.friendship.delete({ where: { id } });
+      return reply.send({ ok: true, action: "cancelled" });
+    }
+
+    await prisma.friendship.delete({ where: { id } });
+    return reply.send({ ok: true, action: "declined" });
+  });
+
+  // ---------- DELETE /api/friends/:id ----------
+  // Unfriend. Either participant can remove an accepted friendship.
+  fastify.delete("/:id", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid friendship id" });
+    }
+    const { id } = parsed.data;
+    const me = request.userId;
+
+    const friendship = await prisma.friendship.findUnique({ where: { id } });
+
+    // Must exist, must be mine. (We allow deleting in any status here —
+    // unfriending an accepted friendship, but also cleaning up a stray
+    // row you're part of. The participant check is what matters.)
+    if (
+      !friendship ||
+      (friendship.userIdA !== me && friendship.userIdB !== me)
+    ) {
+      return reply.code(404).send({ error: "Friendship not found" });
+    }
+
+    await prisma.friendship.delete({ where: { id } });
+    return reply.send({ ok: true });
+  });
 }
 
