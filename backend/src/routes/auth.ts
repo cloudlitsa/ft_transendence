@@ -5,8 +5,8 @@ import type { FastifyInstance } from "fastify"; // for type checking not code ex
 import bcrypt from "bcryptjs"; // bcryptjs is pure JS, works in Node 18+ without native modules
 import { z } from "zod";
 import { prisma } from "../prisma.js";
-import { signToken, verifyToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
-import { requireAuth } from "../lib/requireAuth.js";
+import { signToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
+import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 
 // ---------- Validation schemas (Zod) ----------
 // These define what a VALID request body looks like. Anything that doesn't
@@ -113,7 +113,7 @@ export async function authRoutes(fastify: FastifyInstance) {
   // and attaches request.userId.
   fastify.get("/me", { preHandler: requireAuth }, async (request, reply) => {
     const user = await prisma.user.findUnique({
-      where: { id: request.userId },
+      where: { id: authedUserId(request) },
       select: { id: true, email: true, displayName: true, avatarUrl: true },
     });
 

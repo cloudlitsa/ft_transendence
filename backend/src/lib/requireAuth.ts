@@ -14,10 +14,21 @@ import { prisma } from "../prisma.js";
 // object. This block extends Fastify's own type definition so that
 // `request.userId` type-checks everywhere. It adds NO runtime code — it's
 // purely a message to the compiler.
+// In requireAuth.ts — the augmentation becomes honest:
 declare module "fastify" {
   interface FastifyRequest {
-    userId: string;
+    userId?: string; // set by requireAuth; absent on unguarded routes
   }
+}
+
+// And a helper for guarded handlers:
+export function authedUserId(request: FastifyRequest): string {
+  if (!request.userId) {
+    // Should be impossible behind requireAuth — if this throws, a route
+    // forgot its guard, and failing loudly here is exactly what we want.
+    throw new Error("authedUserId called on a route without requireAuth");
+  }
+  return request.userId;
 }
 
 export async function requireAuth(request: FastifyRequest, reply: FastifyReply) {
@@ -26,7 +37,7 @@ export async function requireAuth(request: FastifyRequest, reply: FastifyReply) 
   if (!token) {
     return reply.code(401).send({ error: "Not logged in" });
   }
-
+  
   // 2. Is the token valid? (not expired, not tampered, signed by us)
   const payload = verifyToken(token);
   if (!payload) {

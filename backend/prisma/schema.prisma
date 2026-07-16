@@ -1,7 +1,7 @@
 // Prisma schema for the check-in app.
 //
 // Five models cover the MVP: User, Friendship, Alert, Acknowledgement, Message.
-// Design decisions match schema.sql:
+// Design decisions:
 //   - UUIDs for IDs (unguessable, no easy enumeration)
 //   - Symmetric friendships (one row per pair, smaller UUID first)
 //   - Enums for status/type fields (database-enforced valid values)

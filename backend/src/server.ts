@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import { prisma } from "./prisma.js";
 import { authRoutes } from "./routes/auth.js";
-import { friendsRoutes } from "./routes/friends.js";  // address of the compiled artifact
+import { friendsRoutes } from "./routes/friends.js"; 
 
 const fastify = Fastify({ logger: true });
 

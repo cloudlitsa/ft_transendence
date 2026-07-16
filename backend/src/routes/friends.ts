@@ -5,12 +5,12 @@
 import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
-import { requireAuth } from "../lib/requireAuth.js";
+import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 
 // ---------- Validation ----------
 const requestSchema = z.object({
   email: z.string().email("Invalid email address").max(254),
-}); // this is the same as the schema used in the frontend, but we don't import it from there to avoid circular dependencies.
+});
 // what it does is validate that the email is a string, is a valid email address, and is no longer than 254 characters (the maximum length of an email address according to RFC 5321).
 
 // The response we send whether or not the target account exists.
@@ -32,7 +32,7 @@ export async function friendsRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid input" });
     }
     const { email } = parsed.data;
-    const me = request.userId; // attached by requireAuth
+    const me = authedUserId(request); 
 
     // Look up the target. If they don't exist, we still return the
     // neutral response — from outside, "no such user" and "request
@@ -68,21 +68,29 @@ export async function friendsRoutes(fastify: FastifyInstance) {
       return reply.send(NEUTRAL_RESPONSE);
     }
 
-    await prisma.friendship.create({
-      data: {
-        userIdA,
-        userIdB,
-        requestedBy: me, // who initiated — needed to tell incoming from outgoing
-        // status defaults to "pending" per the schema
-      },
-    });
-
+    try {
+      await prisma.friendship.create({
+        data: {
+          userIdA,
+          userIdB,
+          requestedBy: me,
+        },
+      });
+    } catch (err) {
+      // P2002 = unique constraint violation. A concurrent request created
+      // the row between our check and our insert. That's fine — the outcome
+      // the user wanted (a pending request exists) is true either way.
+      if ((err as { code?: string }).code === "P2002") {
+        return reply.send(NEUTRAL_RESPONSE);
+      }
+      throw err; // anything else is a real error — let Fastify 500 it
+    }
     return reply.send(NEUTRAL_RESPONSE);
   });
   // ---------- GET /api/friends ----------
   // Accepted friends only.
   fastify.get("/", async (request, reply) => {
-    const me = request.userId;
+    const me = authedUserId(request);
 
     // Find every accepted row where I'm one of the two participants.
     // We include both userA and userB so we can pick "the other one".
@@ -112,7 +120,7 @@ export async function friendsRoutes(fastify: FastifyInstance) {
   // ---------- GET /api/friends/pending ----------
   // Split pending rows into incoming (I can accept) and outgoing (waiting).
   fastify.get("/pending", async (request, reply) => {
-    const me = request.userId;
+    const me = authedUserId(request);
 
     const rows = await prisma.friendship.findMany({
       where: {
@@ -160,7 +168,7 @@ export async function friendsRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid friendship id" });
     }
     const { id } = parsed.data;
-    const me = request.userId;
+    const me = authedUserId(request);
 
     const friendship = await prisma.friendship.findUnique({ where: { id } });
 
@@ -198,7 +206,7 @@ export async function friendsRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid friendship id" });
     }
     const { id } = parsed.data;
-    const me = request.userId;
+    const me = authedUserId(request);
 
     const friendship = await prisma.friendship.findUnique({ where: { id } });
 
@@ -221,8 +229,7 @@ export async function friendsRoutes(fastify: FastifyInstance) {
     await prisma.friendship.delete({ where: { id } });
     return reply.send({ ok: true, action: "declined" });
   });
-
-  // ---------- DELETE /api/friends/:id ----------
+// ---------- DELETE /api/friends/:id ----------
   // Unfriend. Either participant can remove an accepted friendship.
   fastify.delete("/:id", async (request, reply) => {
     const parsed = idParamSchema.safeParse(request.params);
@@ -230,13 +237,10 @@ export async function friendsRoutes(fastify: FastifyInstance) {
       return reply.code(400).send({ error: "Invalid friendship id" });
     }
     const { id } = parsed.data;
-    const me = request.userId;
+    const me = authedUserId(request);
 
     const friendship = await prisma.friendship.findUnique({ where: { id } });
 
-    // Must exist, must be mine. (We allow deleting in any status here —
-    // unfriending an accepted friendship, but also cleaning up a stray
-    // row you're part of. The participant check is what matters.)
     if (
       !friendship ||
       (friendship.userIdA !== me && friendship.userIdB !== me)
@@ -247,5 +251,6 @@ export async function friendsRoutes(fastify: FastifyInstance) {
     await prisma.friendship.delete({ where: { id } });
     return reply.send({ ok: true });
   });
+  
 }
 
