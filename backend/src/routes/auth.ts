@@ -5,7 +5,8 @@ import type { FastifyInstance } from "fastify"; // for type checking not code ex
 import bcrypt from "bcryptjs"; // bcryptjs is pure JS, works in Node 18+ without native modules
 import { z } from "zod";
 import { prisma } from "../prisma.js";
-import { signToken, verifyToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
+import { signToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
+import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 
 // ---------- Validation schemas (Zod) ----------
 // These define what a VALID request body looks like. Anything that doesn't
@@ -108,28 +109,17 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // ---------- GET /api/auth/me ----------
-  // "Who am I?" — the frontend calls this on page load to know whether the
-  // user is logged in and who they are.
-  fastify.get("/me", async (request, reply) => {
-    const token = request.cookies[AUTH_COOKIE];
-    if (!token) {
-      return reply.code(401).send({ error: "Not logged in" });
-    }
-
-    const payload = verifyToken(token);
-    if (!payload) {
-      // expired or tampered token — clear it so the browser stops sending it
-      reply.clearCookie(AUTH_COOKIE, { path: "/" });
-      return reply.code(401).send({ error: "Session expired" });
-    }
-
+  // "Who am I?" — guarded by requireAuth, which handles all the 401 cases
+  // and attaches request.userId.
+  fastify.get("/me", { preHandler: requireAuth }, async (request, reply) => {
     const user = await prisma.user.findUnique({
-      where: { id: payload.userId },
+      where: { id: authedUserId(request) },
       select: { id: true, email: true, displayName: true, avatarUrl: true },
     });
 
+    // requireAuth already confirmed the user exists, but between that check
+    // and this query the account could theoretically be deleted. Handle it.
     if (!user) {
-      // user deleted since the token was issued
       reply.clearCookie(AUTH_COOKIE, { path: "/" });
       return reply.code(401).send({ error: "Account no longer exists" });
     }
