@@ -11,13 +11,15 @@ export interface ApiError {
 }
 
 async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const headers: Record<string, string> = {};
+  if (options.body) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(`/api${path}`, {
     ...options,
+    headers,
     credentials: "include", // send/receive the httpOnly auth cookie
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
   });
 
   // Try to parse a JSON body even on errors (our backend sends { error: "..." }).
@@ -48,4 +50,8 @@ export const api = {
       method: "POST",
       body: data ? JSON.stringify(data) : undefined,
     }),
+
+  // 'delete' is a reserved-ish word people avoid as a bare identifier;
+  // as an object property it's fine.
+  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
