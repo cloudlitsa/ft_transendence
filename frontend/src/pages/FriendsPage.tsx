@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react"; // React hooks let us remember state and run code when the page first renders.
+import { useEffect, useState, type FormEvent } from "react"; // React hooks let us remember state and run code when the page first renders.
 import { api } from "../lib/api";
 
 // ---------- Types matching the backend responses ----------
@@ -30,8 +30,7 @@ export default function FriendsPage() { // the main component for the /friends p
 
   // ---------- Load everything from the backend ----------
   async function refresh() { // fetch friends and pending requests from the backend and update state. called once on page load, and after every action that changes the data. Async because it uses await to wait for the backend responses. We don't return anything; we just update state.
-    // setLoading(true); // show the "Loading…" message while we wait for the backend. We don't clear the old data, so the user sees the old list until the new one arrives.
-    // setMessage(""); // clear any old message
+   
     try { // fetch both endpoints in parallel, then update state when both are done. Promise.all waits for both promises to resolve, and returns an array of results in the same order. If either promise rejects, Promise.all rejects immediately and we catch it below.
       const [friendsRes, pendingRes] = await Promise.all([
         api.get<{ friends: FriendEntry[] }>("/friends"), // the backend sends { friends: [...] } from /friends
@@ -53,7 +52,7 @@ export default function FriendsPage() { // the main component for the /friends p
   }, []); // the empty array means "run this effect only once, on mount". if we left it out, React would run refresh() on every render, which would be bad.
 
   // ---------- Actions ----------
-  async function sendRequest(e: React.FormEvent) { // called when the user submits the add-friend form. e is the event object, which we can use to prevent the default form submission behavior.
+  async function sendRequest(e: FormEvent) { // called when the user submits the add-friend form. e is the event object, which we can use to prevent the default form submission behavior.
     e.preventDefault(); // stop the browser doing a full-page form submit
     try {
       const res = await api.post<{ message: string }>("/friends/request", { email }); // the backend sends { message: "..." } from /friends/request. we pass the email in the request body.
@@ -106,6 +105,7 @@ export default function FriendsPage() { // the main component for the /friends p
         <form onSubmit={sendRequest}>
           <input
             type="email"
+            aria-label="Friend's email address"
             placeholder="friend@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)} // update state when the user types in the input. React re-renders the page with the new value. e is the event object, which has a target property that is the input element. e.target.value is the current value of the input.

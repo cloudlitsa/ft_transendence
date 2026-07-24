@@ -3,8 +3,6 @@ import HomePage from "./pages/HomePage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import FriendsPage from "./pages/FriendsPage.tsx";
-// nav:    <Link to="/friends">Friends</Link>
-// routes: <Route path="/friends" element={<FriendsPage />} />
 
 // App is now the router for the whole app. It decides what page to render based on the URL path.
 // Routes is a container for all the Route components. Each Route component defines a path and the component to render when the path matches the URL.
