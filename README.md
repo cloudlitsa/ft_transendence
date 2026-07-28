@@ -69,6 +69,45 @@ To stop and wipe the database: `docker compose down -v`
 - **Auth:** bcryptjs password hashing, JWT in httpOnly cookies, Zod input validation
 - **Orchestration:** Docker Compose (frontend, backend, database containers)
 
+## Modules
+
+The project targets 14 points (Major = 2 pts, Minor = 1 pt). Modules completed so far:
+
+**Total so far: 1 / 14** *(PWA module in a separate PR adds 1 more)*
+
+### Notification system — Web · Minor · 1 pt
+
+**What it is.** In-app toast notifications giving the user immediate feedback on
+every create / update / delete action — e.g. "Friend request accepted",
+"Removed from friends", or a red error toast when something fails. Success,
+error, and info variants, auto-dismissing after 3 seconds.
+
+**How it's implemented.**
+- A reusable toast system built on **React Context**
+  (`frontend/src/components/ToastProvider.tsx`): a `ToastProvider` wraps the whole
+  app (`main.tsx`), a `useToast()` hook exposes `success` / `error` / `info`, and
+  a container renders the toasts stacked in the corner — each schedules its own
+  removal with a timer.
+- Wired into **all current create/update/delete actions** (the friends system in
+  `FriendsPage.tsx`): send request, accept, decline/cancel, unfriend — on both
+  success and failure.
+- **App-wide by design**: any future feature (alerts, chat, profile) fires a
+  notification with one line — `useToast().success(...)` — no new setup.
+
+**How to verify.**
+1. Log in (two users), go to Friends.
+2. Send a friend request → info toast; send to yourself → red error toast.
+3. From the other user: accept / decline / unfriend → green success toasts.
+4. Load `/friends` while logged out → red error toast ("Couldn't load friends: …").
+
+**Scope note.** The subject asks for notifications on "all creation, update, and
+deletion actions." Friends is currently the only feature with such actions; the
+system is app-wide, so new features plug in via `useToast()` as they land. A
+real-time notification centre (bell) is out of scope — it needs WebSockets and
+is not required for this module.
+
+**Contributor.** maria.v.osokina
+
 ## Project structure
 
 ```
