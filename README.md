@@ -69,6 +69,48 @@ To stop and wipe the database: `docker compose down -v`
 - **Auth:** bcryptjs password hashing, JWT in httpOnly cookies, Zod input validation
 - **Orchestration:** Docker Compose (frontend, backend, database containers)
 
+## Modules
+
+The project targets 14 points (Major = 2 pts, Minor = 1 pt). Modules completed so far:
+
+**Total so far: 1 / 14**
+
+### Progressive Web App (PWA) — Web · Minor · 1 pt
+
+**What it is.** The app is installable to the home screen / desktop and keeps
+working offline. For a check-in app this matters: users should be able to open
+the app instantly, like a native app, and not hit a broken page when their
+connection drops.
+
+**How it's implemented.**
+- `vite-plugin-pwa` (Workbox under the hood) generates a **web app manifest**
+  and a **service worker** at build time.
+- The **manifest** (`frontend/vite.config.js`) defines the app name, icons
+  (192, 512, and a maskable variant), theme colours, `display: standalone`,
+  and install screenshots — making the app installable.
+- The **service worker** precaches the built app shell (HTML, JS, icons) and
+  falls back to `index.html` for all client-side routes, so the app loads
+  offline from cache.
+- An **offline banner** (`frontend/src/components/OfflineBanner.tsx`) listens to
+  the browser's `online`/`offline` events and tells the user when live data is
+  unavailable.
+
+**How to verify.**
+1. `docker compose up --build`, then build the frontend (`docker compose exec
+   frontend npm run build`) and serve `frontend/dist/` — offline caching only
+   works on a production build, not the Vite dev server.
+2. Chrome → address bar shows an **install** icon → installs into its own window.
+3. DevTools → Network → **Offline** → reload → the app still loads, and the
+   offline banner appears.
+
+**Scope note.** Web-push notifications (waking the user when a friend sends an
+alert while the app is closed) are planned as a follow-up. They depend on the
+alerts feature and backend push infrastructure, and are **not required** for
+this module's point (which covers installability + offline). They are product
+polish, tracked separately.
+
+**Contributor.** maria.v.osokina
+
 ## Project structure
 
 ```
