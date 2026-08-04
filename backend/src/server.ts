@@ -2,7 +2,8 @@ import Fastify from "fastify";
 import cookie from "@fastify/cookie";
 import { prisma } from "./prisma.js";
 import { authRoutes } from "./routes/auth.js";
-import { friendsRoutes } from "./routes/friends.js"; 
+import { friendsRoutes } from "./routes/friends.js";
+import { alertsRoutes } from "./routes/alerts.js";
 
 const fastify = Fastify({ logger: true });
 
@@ -14,6 +15,9 @@ await fastify.register(authRoutes, { prefix: "/api/auth" });
 
 // Friends endpoints live under /api/friends/*
 await fastify.register(friendsRoutes, { prefix: "/api/friends" });
+
+// Alerts endpoints live under /api/alerts/*
+await fastify.register(alertsRoutes, { prefix: "/api/alerts" });
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
