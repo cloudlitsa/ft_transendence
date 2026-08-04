@@ -29,9 +29,14 @@ services:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       PORT: 3000
       JWT_SECRET: ${JWT_SECRET}
+      SMTP_HOST: mailhog
+      SMTP_PORT: 1025
+      MAIL_FROM: "Check-in <no-reply@checkin.local>"
     depends_on:
       db:
         condition: service_healthy
+      mailhog:
+        condition: service_started
     # source mounted for hot-reload in dev; node_modules kept inside container
     volumes:
       - ./backend:/app
@@ -51,6 +56,17 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
+    networks:
+      - internal
+  # ---- Dev mail catcher: Mailhog ----
+  # Fake SMTP server for development. The backend sends confirmation emails
+  # here instead of to real inboxes. View them at http://localhost:8025.
+  mailhog:
+    image: mailhog/mailhog:latest
+    container_name: checkin_mailhog
+    restart: unless-stopped
+    ports:
+      - "8025:8025"   # web UI (SMTP is on 1025, internal only)
     networks:
       - internal
 

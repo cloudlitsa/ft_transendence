@@ -4,7 +4,7 @@ import { prisma } from "../prisma.js";
 import { AUTH_COOKIE } from "../lib/auth.js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-
+import { sendMail } from "../lib/mail.js";
 
 export async function gdprRoutes(fastify: FastifyInstance) {
   // Every route in this file requires the user to be logged in.
@@ -32,7 +32,15 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     const messages = await prisma.message.findMany({ where: { senderId: me } });
 
     const payload = { exportedAt: new Date().toISOString(), user, friendships, alerts, acknowledgements, messages};
-
+    
+    // Confirmation email for the export (fire-and-forget: never block the export).
+    if (user) {
+      sendMail(
+        user.email,
+        "Your data export is ready",
+        `Hi ${user.displayName},\n\nYou requested a copy of your data and it was exported successfully.\n\n— Check-in`,
+      ).catch((err) => request.log.error({ err }, "export email failed"));
+    }
     return reply
       .header("Content-Type", "application/json")
       .header("Content-Disposition", 'attachment; filename="my-data.json"')
@@ -55,7 +63,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     // 2. fetch the stored hash (the ONE place we read passwordHash)
     const user = await prisma.user.findUnique({
       where: { id: me },
-      select: { passwordHash: true },
+      select: { passwordHash: true, email: true, displayName: true },
     });
     if (!user) {
       return reply.code(404).send({ error: "Account not found" });
@@ -69,6 +77,14 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     // 4. confirmed — delete (cascade wipes everything)
     await prisma.user.delete({ where: { id: me } });
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
+
+
+    // Confirmation email for the deletion (user captured above, before delete).
+    sendMail(
+      user.email,
+      "Your account has been deleted",
+      `Hi ${user.displayName},\n\nYour account and all associated data have been permanently deleted.\n\n— Check-in`,
+    ).catch((err) => request.log.error({ err }, "deletion email failed"));
     return reply.send({ ok: true });
   });
 }
