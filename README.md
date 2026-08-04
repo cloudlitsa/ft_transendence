@@ -73,7 +73,7 @@ To stop and wipe the database: `docker compose down -v`
 
 The project targets 14 points (Major = 2 pts, Minor = 1 pt). Modules completed so far:
 
-**Total so far: 1 / 14**
+**Total so far: 2 / 14**
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -108,6 +108,58 @@ alert while the app is closed) are planned as a follow-up. They depend on the
 alerts feature and backend push infrastructure, and are **not required** for
 this module's point (which covers installability + offline). They are product
 polish, tracked separately.
+
+**Contributor.** maria.v.osokina
+
+### GDPR Compliance — Data and Analytics · Minor · 1 pt
+
+**What it is.** Users own their data, so the app lets them take a copy of it and
+erase their account. For a check-in app this matters: the data is personal and
+sensitive (who you reached out to, your messages), so a user must be able to
+download everything the app holds about them and permanently delete it on
+demand — the two core GDPR rights of access and erasure.
+
+**How it's implemented.**
+- Two guarded backend endpoints in `backend/src/routes/gdpr.ts`, mounted under
+  `/api/account` and protected by the shared `requireAuth` hook (same pattern
+  as `friends.ts`).
+- **Export** — `GET /api/account/export` gathers the user's own rows from all
+  five tables (user, friendships, alerts, acknowledgements, messages) via
+  scoped Prisma queries, and returns them as a downloadable JSON file
+  (`Content-Disposition` header). The user `select` **omits `passwordHash`**, so
+  the hash can never leak into an export.
+- **Delete with confirmation** — `DELETE /api/account` requires the user to
+  re-enter their password (validated with Zod, checked with the same
+  `bcrypt.compare` login uses). Only on a match does it run
+  `prisma.user.delete`, whose `onDelete: Cascade` foreign keys wipe the user's
+  friendships, alerts, acknowledgements and messages in one operation.
+- **Confirmation emails** — both operations send a notification via a reusable
+  helper (`backend/src/lib/mail.ts`, `sendMail(to, subject, body)` over SMTP,
+  configured from env vars). Sends are fire-and-forget: a mail failure is logged
+  and never blocks the export or delete. In dev, mail is caught by a **Mailhog**
+  container (`docker-compose.yml`, web UI at `localhost:8025`); going live is an
+  env-var change, no code change.
+
+**How to verify.**
+1. `docker compose up --build`, then sign up via curl to get a session cookie
+   (`curl -c cookies.txt -X POST localhost:5173/api/auth/signup -H 'Content-Type:
+   application/json' -d '{"email":"t@x.com","password":"secret123","displayName":"T"}'`).
+2. **Export** — `curl -b cookies.txt localhost:5173/api/account/export` returns
+   all five sections as JSON, with **no `passwordHash`** field.
+3. **Delete** — no password → `400`; wrong password → `403`; correct password →
+   `{"ok":true}`. Afterwards any guarded route returns `401` "Account no longer
+   exists".
+4. **Cascade** — in psql, confirm no rows remain for the deleted user and that
+   the foreign keys carry `ON DELETE CASCADE`.
+5. **Emails** — open `localhost:8025`; export and delete each produce a
+   confirmation email.
+
+**Scope note.** The confirmation emails send in dev via Mailhog; delivering to
+real inboxes in production is an env-var swap. The `sendMail` helper is generic
+(no GDPR-specific logic), so the **2FA module can reuse it** for login codes.
+The frontend "Download my data" button and "Delete account" dialog are a
+follow-up that depends on the login/signup forms; the backend
+is fully testable via curl in the meantime.
 
 **Contributor.** maria.v.osokina
 
