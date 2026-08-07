@@ -178,5 +178,30 @@ export async function alertsRoutes(fastify: FastifyInstance) {
 
     return reply.send({ ok: true });
   });
-  
+
+  // ---------- POST /api/alerts/:id/close ----------
+  // "All clear" — sender only. Sets closed + timestamp.
+  fastify.post("/:id/close", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid alert id" });
+    }
+    const { id } = parsed.data;
+    const me = authedUserId(request);
+
+    // updateMany with the ownership + status conditions in the WHERE:
+    // it only updates a row that exists, is mine, and is still active.
+    // count tells us whether anything matched — one query, no race.
+    const result = await prisma.alert.updateMany({
+      where: { id, senderId: me, status: "active" },
+      data: { status: "closed", closedAt: new Date() },
+    });
+
+    if (result.count === 0) {
+      // Missing, not mine, or already closed — same 404 for all three.
+      return reply.code(404).send({ error: "Alert not found" });
+    }
+
+    return reply.send({ ok: true });
+  });
 }
