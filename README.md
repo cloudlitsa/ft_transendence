@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by &lt;login1&gt;.*
+*This project has been created as part of the 42 curriculum by evmouka.*
 
 # Check-in app
 
@@ -13,24 +13,31 @@ makes this clear to users and in its Terms of Service.
 
 ## Status: in development
 
-Foundation complete — containerized app, TypeScript frontend and backend,
-PostgreSQL with full schema, and working authentication (signup, login, sessions).
-Feature work is next. See `PROJECT.md` for the full plan.
+Core features taking shape — containerized app, TypeScript end to end,
+PostgreSQL with full schema, authentication, the friends system, and the
+alerts backend. See `PROJECT.md` for the full plan.
 
 **Working now:**
 - Containerized dev environment (one command to run everything)
 - TypeScript end to end (frontend + backend share types)
 - PostgreSQL database with full schema (users, friendships, alerts, acknowledgements, messages)
 - Auth backend: signup, login, logout, session check — hashed passwords, validated input, httpOnly cookie sessions
+- Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
+- Alerts backend: send, view, acknowledge, close
+- In-app toast notifications, installable PWA with offline support
 
 **Next:**
 - Signup / login UI forms (the API they call is already built)
-- Friends system (add, accept, list)
-- Sending and acknowledging alerts
+- Alerts UI
 - Real-time updates (WebSockets)
 - Chat
+- Profile page, avatar upload, online status
 
 ## Running it
+
+**After pulling a branch that adds a backend dependency**, run
+`docker compose exec backend npm install` — a rebuild alone won't pick it up
+because `node_modules` is a named volume.
 
 ### Prerequisites
 
@@ -67,13 +74,17 @@ To stop and wipe the database: `docker compose down -v`
 - **Backend:** Fastify + TypeScript
 - **Database:** PostgreSQL with Prisma ORM
 - **Auth:** bcryptjs password hashing, JWT in httpOnly cookies, Zod input validation
-- **Orchestration:** Docker Compose (frontend, backend, database containers)
+- **Orchestration:** Docker Compose (frontend, backend, database, mailhog containers)
 
 ## Modules
 
-The project targets 14 points (Major = 2 pts, Minor = 1 pt). Modules completed so far:
+The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Total so far: 2 / 14**
+**Completed: 6 / 14** — Framework (Major, 2) · ORM (Minor, 1) ·
+PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
+
+**In progress:** Standard User Management (friends system done; profile page,
+avatar upload and online status still to build) · Real-time WebSockets · 2FA
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -163,18 +174,58 @@ is fully testable via curl in the meantime.
 
 **Contributor.** maria.v.osokina
 
+### Notification system — Web · Minor · 1 pt
+
+**What it is.** In-app toast notifications giving the user immediate feedback on
+every create / update / delete action — e.g. "Friend request accepted",
+"Removed from friends", or a red error toast when something fails. Success,
+error, and info variants, auto-dismissing after 3 seconds.
+
+**How it's implemented.**
+- A reusable toast system built on **React Context**
+  (`frontend/src/components/ToastProvider.tsx`): a `ToastProvider` wraps the whole
+  app (`main.tsx`), a `useToast()` hook exposes `success` / `error` / `info`, and
+  a container renders the toasts stacked in the corner — each schedules its own
+  removal with a timer.
+- Wired into **all current create/update/delete actions** (the friends system in
+  `FriendsPage.tsx`): send request, accept, decline/cancel, unfriend — on both
+  success and failure.
+- **App-wide by design**: any future feature (alerts, chat, profile) fires a
+  notification with one line — `useToast().success(...)` — no new setup.
+
+**How to verify.**
+1. Log in (two users), go to Friends.
+2. Send a friend request → info toast; send to yourself → red error toast.
+3. From the other user: accept / decline / unfriend → green success toasts.
+4. Load `/friends` while logged out → red error toast ("Couldn't load friends: …").
+
+**Scope note.** The subject asks for notifications on "all creation, update, and
+deletion actions." Friends is currently the only feature with such actions; the
+system is app-wide, so new features plug in via `useToast()` as they land. A
+real-time notification centre (bell) is out of scope — it needs WebSockets and
+is not required for this module.
+
+**Contributor.** maria.v.osokina
+
 ## Project structure
 
 ```
-backend/          Fastify + TypeScript API
-  prisma/         Database schema and migrations
+backend/                Fastify + TypeScript API
+  prisma/               Database schema and migrations
   src/
-    routes/       API endpoints (auth, etc.)
-    lib/          Shared helpers (JWT, cookies)
-frontend/         React + TypeScript app
+    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts)
+    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts)
+    prisma.ts           Shared PrismaClient instance
+    server.ts           App entry: plugin registration, health check
+docs/                   Project documentation
+frontend/               React + TypeScript app
+  public/               Static assets (favicon, PWA icons, screenshots)
   src/
-    pages/        Route pages (Home, Login, Signup)
-    lib/          API client
+    components/         Shared UI (OfflineBanner, ToastProvider)
+    lib/                API client (api.ts)
+    pages/              Route pages (Home, Login, Signup, Friends)
+    App.tsx             Router and nav
+    main.tsx            App entry: providers and root render
 docker-compose.yml
 ```
 

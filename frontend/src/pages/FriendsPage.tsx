@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react"; // React hooks let us remember state and run code when the page first renders.
 import { api } from "../lib/api";
+import { useToast } from "../components/ToastProvider.tsx"; // fire notifications on create/update/delete actions
 
 // ---------- Types matching the backend responses ----------
 interface FriendUser { // the user on the other side of a friendship. the backend sends this shape in both /friends and /friends/pending. interface means "the other user" in the friendship, not "me".
@@ -25,8 +26,9 @@ export default function FriendsPage() { // the main component for the /friends p
   const [incoming, setIncoming] = useState<FriendEntry[]>([]);
   const [outgoing, setOutgoing] = useState<FriendEntry[]>([]);
   const [email, setEmail] = useState("");          // the add-friend input
-  const [message, setMessage] = useState("");      // feedback after actions
   const [loading, setLoading] = useState(true); // true while we're waiting for the backend to respond. we show a "Loading…" message in this case.
+
+  const toast = useToast(); // used to fire success/error/info notifications on actions
 
   // ---------- Load everything from the backend ----------
   async function refresh() { // fetch friends and pending requests from the backend and update state. called once on page load, and after every action that changes the data. Async because it uses await to wait for the backend responses. We don't return anything; we just update state.
@@ -40,7 +42,7 @@ export default function FriendsPage() { // the main component for the /friends p
       setIncoming(pendingRes.incoming);
       setOutgoing(pendingRes.outgoing);
     } catch (err) { // if either request fails, we catch the error here. err is the Error object thrown by api.get, which includes the backend's error message.
-      setMessage((err as Error).message);
+      toast.error("Couldn't load friends: " + (err as Error).message);
     } finally { // finally runs whether the try block succeeded or the catch block ran. we always want to stop showing "Loading…" when we're done, even if there was an error.
       setLoading(false);
     }
@@ -56,38 +58,43 @@ export default function FriendsPage() { // the main component for the /friends p
     e.preventDefault(); // stop the browser doing a full-page form submit
     try {
       const res = await api.post<{ message: string }>("/friends/request", { email }); // the backend sends { message: "..." } from /friends/request. we pass the email in the request body.
-      setMessage(res.message);
+      toast.info(res.message); // neutral message ("if that person has an account, they'll receive your request")
       setEmail("");
       refresh(); // outgoing list may have a new entry
     } catch (err) {
-      setMessage((err as Error).message); // show the backend's error message, e.g. "User not found" or "Already friends". we pickup message from the Error object thrown by api.post, which includes the backend's error message. we cast err to Error because TypeScript doesn't know what type it is.
+      toast.error((err as Error).message); // e.g. "You can't send a request to yourself"
     }
   }
 
   async function accept(id: string) {
     try {
       await api.post(`/friends/${id}/accept`);
+      toast.success("Friend request accepted");
       refresh(); // incoming list may have a new entry, and friends list may have a new entry. Refresh() fetches both lists from the backend and updates state, which triggers a re-render with the new data.
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   }
 
   async function declineOrCancel(id: string) {
     try {
-      await api.post(`/friends/${id}/decline`);
+      // The backend tells us whether this was a decline (someone else's request)
+      // or a cancel (a request I sent). We show the matching message.
+      const res = await api.post<{ action: string }>(`/friends/${id}/decline`);
+      toast.success(res.action === "cancelled" ? "Request cancelled" : "Request declined");
       refresh();
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   }
 
   async function unfriend(id: string) {
     try {
       await api.delete(`/friends/${id}`);
+      toast.success("Removed from friends");
       refresh();
     } catch (err) {
-      setMessage((err as Error).message);
+      toast.error((err as Error).message);
     }
   }
 
@@ -98,8 +105,6 @@ export default function FriendsPage() { // the main component for the /friends p
     <div>
       <h1>Friends</h1>
 
-      {message && <p>{message}</p>}
-   
       <section>
         <h2>Add a friend</h2>
         <form onSubmit={sendRequest}>
