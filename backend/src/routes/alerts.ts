@@ -116,4 +116,67 @@ export async function alertsRoutes(fastify: FastifyInstance) {
 
     return reply.send({ myAlert, friendsAlerts });
   });
+
+  // ---------- Validation for :id ----------
+  const idParamSchema = z.object({
+    id: z.string().uuid("Invalid alert id"),
+  });
+
+  // ---------- POST /api/alerts/:id/acknowledge ----------
+  // A friend marks the sender's alert "I see you". Idempotent: acknowledging
+  // twice is harmless (the composite PK stops a duplicate row).
+  fastify.post("/:id/acknowledge", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid alert id" });
+    }
+    const { id } = parsed.data;
+    const me = authedUserId(request);
+
+    // Fetch the alert to check it exists, is active, and who sent it.
+    const alert = await prisma.alert.findUnique({
+      where: { id },
+      select: { id: true, senderId: true, status: true },
+    });
+
+    // 404 for missing OR closed — same anti-probing pattern as friends.
+    if (!alert || alert.status !== "active") {
+      return reply.code(404).send({ error: "Alert not found" });
+    }
+
+    // You can't acknowledge your own alert.
+    if (alert.senderId === me) {
+      return reply.code(400).send({ error: "You can't acknowledge your own alert" });
+    }
+
+    // You can only acknowledge a friend's alert. Reuse the accepted-friendship
+    // check: is there an accepted row pairing me and the sender?
+    const [a, b] = me < alert.senderId ? [me, alert.senderId] : [alert.senderId, me];
+    const friendship = await prisma.friendship.findUnique({
+      where: { userIdA_userIdB: { userIdA: a, userIdB: b } },
+      select: { status: true },
+    });
+    if (!friendship || friendship.status !== "accepted") {
+      // Not their friend → same 404 as "no such alert". Don't reveal the
+      // alert exists to a non-friend.
+      return reply.code(404).send({ error: "Alert not found" });
+    }
+
+    // Insert the acknowledgement. If I've already acknowledged, the composite
+    // PK (alertId, userId) throws P2002 — which we treat as success, because
+    // the desired state ("I've acknowledged this") is already true.
+    try {
+      await prisma.acknowledgement.create({
+        data: { alertId: id, userId: me },
+      });
+    } catch (err) {
+      if ((err as { code?: string }).code === "P2002") {
+        return reply.send({ ok: true, alreadyAcknowledged: true });
+      }
+      throw err;
+    }
+
+    return reply.send({ ok: true });
+  });
+  
 }
