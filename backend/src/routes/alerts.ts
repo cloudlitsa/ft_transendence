@@ -19,7 +19,7 @@ const sendAlertSchema = z.object({
 export async function alertsRoutes(fastify: FastifyInstance) {
   fastify.addHook("preHandler", requireAuth);
 
-  
+
   // ---------- POST /api/alerts ----------
   // Send a check-in alert to my friends. One active alert per user:
   // if I already have one, 409 — close it first, then send a new one.
@@ -54,5 +54,66 @@ export async function alertsRoutes(fastify: FastifyInstance) {
     });
 
     return reply.code(201).send({ alert });
+  });
+
+  // ---------- GET /api/alerts ----------
+  // Returns my own active alert (with acknowledgers) + my friends' active alerts.
+  fastify.get("/", async (request, reply) => {
+    const me = authedUserId(request);
+
+    // 1. Who are my accepted friends? Reuse the friends pattern:
+    //    a friendship row where I'm userA or userB and status is accepted.
+    const friendships = await prisma.friendship.findMany({
+      where: {
+        status: "accepted",
+        OR: [{ userIdA: me }, { userIdB: me }],
+      },
+      select: { userIdA: true, userIdB: true },
+    });
+
+    // For each row, the friend is whichever side isn't me.
+    const friendIds = friendships.map((f) => (f.userIdA === me ? f.userIdB : f.userIdA));
+
+    // 2. My own active alert (if any), with who has acknowledged it.
+    const myAlert = await prisma.alert.findFirst({
+      where: { senderId: me, status: "active" },
+      select: {
+        id: true,
+        alertType: true,
+        note: true,
+        status: true,
+        createdAt: true,
+        acknowledgements: {
+          select: {
+            acknowledgedAt: true,
+            user: { select: { id: true, displayName: true, avatarUrl: true } },
+          },
+        },
+      },
+    });
+
+    // 3. Active alerts from my friends. `in: friendIds` — if I have no
+    //    friends, this is an empty array and Prisma returns nothing (correct).
+    const friendsAlerts = await prisma.alert.findMany({
+      where: {
+        status: "active",
+        senderId: { in: friendIds },
+      },
+      select: {
+        id: true,
+        alertType: true,
+        note: true,
+        createdAt: true,
+        sender: { select: { id: true, displayName: true, avatarUrl: true } },
+        // Whether *I* have already acknowledged this one — lets the UI
+        // show "you've responded" vs an Acknowledge button.
+        acknowledgements: {
+          where: { userId: me },
+          select: { acknowledgedAt: true },
+        },
+      },
+    });
+
+    return reply.send({ myAlert, friendsAlerts });
   });
 }
