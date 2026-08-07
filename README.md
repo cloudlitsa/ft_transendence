@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by &lt;login1&gt;.*
+*This project has been created as part of the 42 curriculum by evmouka.*
 
 # Check-in app
 
@@ -13,22 +13,25 @@ makes this clear to users and in its Terms of Service.
 
 ## Status: in development
 
-Foundation complete — containerized app, TypeScript frontend and backend,
-PostgreSQL with full schema, and working authentication (signup, login, sessions).
-Feature work is next. See `PROJECT.md` for the full plan.
+Core features taking shape — containerized app, TypeScript end to end,
+PostgreSQL with full schema, authentication, the friends system, and the
+alerts backend. See `PROJECT.md` for the full plan.
 
 **Working now:**
 - Containerized dev environment (one command to run everything)
 - TypeScript end to end (frontend + backend share types)
 - PostgreSQL database with full schema (users, friendships, alerts, acknowledgements, messages)
 - Auth backend: signup, login, logout, session check — hashed passwords, validated input, httpOnly cookie sessions
+- Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
+- Alerts backend: send, view, acknowledge, close
+- In-app toast notifications, installable PWA with offline support
 
 **Next:**
 - Signup / login UI forms (the API they call is already built)
-- Friends system (add, accept, list)
-- Sending and acknowledging alerts
+- Alerts UI
 - Real-time updates (WebSockets)
 - Chat
+- Profile page, avatar upload, online status
 
 ## Running it
 
@@ -71,9 +74,50 @@ To stop and wipe the database: `docker compose down -v`
 
 ## Modules
 
-The project targets 14 points (Major = 2 pts, Minor = 1 pt). Modules completed so far:
+The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Total so far: 1 / 14** *(PWA module in a separate PR adds 1 more)*
+**Completed: 5 / 14** — Framework (Major, 2) · ORM (Minor, 1) ·
+PWA (Minor, 1) · Notifications (Minor, 1)
+
+**In progress:** Standard User Management (friends system done; profile page,
+avatar upload and online status still to build) · GDPR compliance ·
+Real-time WebSockets · 2FA
+
+### Progressive Web App (PWA) — Web · Minor · 1 pt
+
+**What it is.** The app is installable to the home screen / desktop and keeps
+working offline. For a check-in app this matters: users should be able to open
+the app instantly, like a native app, and not hit a broken page when their
+connection drops.
+
+**How it's implemented.**
+- `vite-plugin-pwa` (Workbox under the hood) generates a **web app manifest**
+  and a **service worker** at build time.
+- The **manifest** (`frontend/vite.config.js`) defines the app name, icons
+  (192, 512, and a maskable variant), theme colours, `display: standalone`,
+  and install screenshots — making the app installable.
+- The **service worker** precaches the built app shell (HTML, JS, icons) and
+  falls back to `index.html` for all client-side routes, so the app loads
+  offline from cache.
+- An **offline banner** (`frontend/src/components/OfflineBanner.tsx`) listens to
+  the browser's `online`/`offline` events and tells the user when live data is
+  unavailable.
+
+**How to verify.**
+1. `docker compose up --build`, then build the frontend (`docker compose exec
+   frontend npm run build`) and serve `frontend/dist/` — offline caching only
+   works on a production build, not the Vite dev server.
+2. Chrome → address bar shows an **install** icon → installs into its own window.
+3. DevTools → Network → **Offline** → reload → the app still loads, and the
+   offline banner appears.
+
+**Scope note.** Web-push notifications (waking the user when a friend sends an
+alert while the app is closed) are planned as a follow-up. They depend on the
+alerts feature and backend push infrastructure, and are **not required** for
+this module's point (which covers installability + offline). They are product
+polish, tracked separately.
+
+**Contributor.** maria.v.osokina
 
 ### Notification system — Web · Minor · 1 pt
 
@@ -111,15 +155,22 @@ is not required for this module.
 ## Project structure
 
 ```
-backend/          Fastify + TypeScript API
-  prisma/         Database schema and migrations
+backend/                Fastify + TypeScript API
+  prisma/               Database schema and migrations
   src/
-    routes/       API endpoints (auth, etc.)
-    lib/          Shared helpers (JWT, cookies)
-frontend/         React + TypeScript app
+    lib/                Shared helpers (auth.ts, requireAuth.ts)
+    routes/             API endpoints (auth.ts, friends.ts)
+    prisma.ts           Shared PrismaClient instance
+    server.ts           App entry: plugin registration, health check
+docs/                   Project documentation
+frontend/               React + TypeScript app
+  public/               Static assets (favicon, PWA icons, screenshots)
   src/
-    pages/        Route pages (Home, Login, Signup)
-    lib/          API client
+    components/         Shared UI (OfflineBanner, ToastProvider)
+    lib/                API client (api.ts)
+    pages/              Route pages (Home, Login, Signup, Friends)
+    App.tsx             Router and nav
+    main.tsx            App entry: providers and root render
 docker-compose.yml
 ```
 
