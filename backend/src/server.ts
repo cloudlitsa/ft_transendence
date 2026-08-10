@@ -3,6 +3,7 @@ import cookie from "@fastify/cookie";
 import { prisma } from "./prisma.js";
 import { authRoutes } from "./routes/auth.js";
 import { friendsRoutes } from "./routes/friends.js"; 
+import { gdprRoutes } from "./routes/gdpr.js";
 
 const fastify = Fastify({ logger: true });
 
@@ -14,6 +15,8 @@ await fastify.register(authRoutes, { prefix: "/api/auth" });
 
 // Friends endpoints live under /api/friends/*
 await fastify.register(friendsRoutes, { prefix: "/api/friends" });
+
+await fastify.register(gdprRoutes, { prefix: "/api/account" });
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
