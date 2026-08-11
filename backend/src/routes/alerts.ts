@@ -6,6 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
+import { Prisma } from "@prisma/client";
 
 // ---------- Validation ----------
 // z.enum matches the Prisma AlertType enum values exactly. Invalid types
@@ -13,16 +14,24 @@ import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 // reject them — Postgres enum — but with an uglier 500).
 const sendAlertSchema = z.object({
   alertType: z.enum(["need_chat", "not_okay", "reach_out"]),
-  note: z.string().max(500).trim().optional(),
+  // trim BEFORE max: Zod validators run in order, so ".max(500).trim()"
+  // would measure the raw string and reject a 498-char note with trailing
+  // whitespace. We mean "500 characters of actual content".
+  note: z.string().trim().max(500).optional(),
 });
 
 export async function alertsRoutes(fastify: FastifyInstance) {
   fastify.addHook("preHandler", requireAuth);
 
-
   // ---------- POST /api/alerts ----------
   // Send a check-in alert to my friends. One active alert per user:
   // if I already have one, 409 — close it first, then send a new one.
+  //
+  // The one-active-per-user rule is enforced by a PARTIAL UNIQUE INDEX in
+  // the database (migration 20260811085441_one_active_alert_index), not by
+  // a read-then-write check in application code. A findFirst-then-create
+  // is raceable: two concurrent requests can both see "no active alert"
+  // before either inserts. The index makes the constraint atomic.
   fastify.post("/", async (request, reply) => {
     const parsed = sendAlertSchema.safeParse(request.body);
     if (!parsed.success) {
@@ -31,29 +40,28 @@ export async function alertsRoutes(fastify: FastifyInstance) {
     const { alertType, note } = parsed.data;
     const me = authedUserId(request);
 
-    // One-active-per-user check. findFirst, not findUnique — "sender +
-    // status" isn't a unique key, we just want to know if any exists.
-    const existing = await prisma.alert.findFirst({
-      where: { senderId: me, status: "active" },
-      select: { id: true },
-    });
-    if (existing) {
-      return reply.code(409).send({
-        error: "You already have an active alert. Close it before sending a new one.",
+    try {
+      const alert = await prisma.alert.create({
+        data: {
+          senderId: me,
+          alertType,
+          note, // undefined → column stays NULL, Prisma handles it
+          // status defaults to "active" per the schema
+        },
+        select: { id: true, alertType: true, note: true, status: true, createdAt: true },
       });
+      return reply.code(201).send({ alert });
+    } catch (err) {
+      // P2002 = unique constraint violation. With the partial index, this
+      // fires only when an ACTIVE alert already exists for this sender —
+      // the DB enforces atomically what findFirst-then-check could not.
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        return reply.code(409).send({
+          error: "You already have an active alert. Close it before sending a new one.",
+        });
+      }
+      throw err; // anything else is a real error — let Fastify log it
     }
-
-    const alert = await prisma.alert.create({
-      data: {
-        senderId: me,
-        alertType,
-        note, // undefined → column stays NULL, Prisma handles it
-        // status defaults to "active" per the schema
-      },
-      select: { id: true, alertType: true, note: true, status: true, createdAt: true },
-    });
-
-    return reply.code(201).send({ alert });
   });
 
   // ---------- GET /api/alerts ----------
@@ -170,7 +178,7 @@ export async function alertsRoutes(fastify: FastifyInstance) {
         data: { alertId: id, userId: me },
       });
     } catch (err) {
-      if ((err as { code?: string }).code === "P2002") {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
         return reply.send({ ok: true, alreadyAcknowledged: true });
       }
       throw err;

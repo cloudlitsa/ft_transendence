@@ -92,6 +92,9 @@ model Friendship {
 
 // ---------- Alert ----------
 // A check-in sent by one user. Active until they close it.
+// NOTE: a partial unique index "one_active_alert_per_sender" exists in the DB
+// (migration one_active_alert_index) enforcing at most one active alert per
+// sender. Prisma can't express partial indexes, so it lives in raw SQL only.
 
 model Alert {
   id        String      @id @default(uuid()) @db.Uuid
