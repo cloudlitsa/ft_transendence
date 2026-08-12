@@ -35,10 +35,6 @@ alerts backend. See `PROJECT.md` for the full plan.
 
 ## Running it
 
-**After pulling a branch that adds a backend dependency**, run
-`docker compose exec backend npm install` — a rebuild alone won't pick it up
-because `node_modules` is a named volume.
-
 ### Prerequisites
 
 - Docker and Docker Compose installed
@@ -50,6 +46,7 @@ because `node_modules` is a named volume.
    ```
    cp .env.example .env
    ```
+
 2. Edit `.env` and set values. You MUST set:
    - `POSTGRES_PASSWORD` — any strong password
    - `JWT_SECRET` — generate one with: `openssl rand -base64 48`
@@ -60,13 +57,26 @@ because `node_modules` is a named volume.
    ```
    docker compose up --build
    ```
-4. Open the app:
+
+4. Create the database tables:
    ```
-   http://localhost:5173
+   docker compose exec backend npx prisma migrate dev
    ```
+   The database starts empty. Until you run this, the app will start but
+   every request that touches the database will fail.
+
+5. Open the app: http://localhost:5173
 
 To stop: `docker compose down`
 To stop and wipe the database: `docker compose down -v`
+
+### After pulling someone else's branch
+
+- **New backend dependency** → `docker compose exec backend npm install`
+  (a rebuild alone won't pick it up — `node_modules` is a named volume)
+- **New migration** → `docker compose exec backend npx prisma migrate dev`
+- **Editor showing phantom type errors** → `cd backend && npm install`
+  (the container and your host have separate `node_modules`)
 
 ## Tech stack
 
@@ -83,8 +93,9 @@ The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 **Completed: 6 / 14** — Framework (Major, 2) · ORM (Minor, 1) ·
 PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
 
-**In progress:** Standard User Management (friends system done; profile page,
-avatar upload and online status still to build) · Real-time WebSockets · 2FA
+**In progress: 8 pts** — Standard User Management (Major, 2) ·
+User Interaction (Major, 2) · Real-time WebSockets (Major, 2) ·
+OAuth (Minor, 1) · Custom design system (Minor, 1)
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -167,10 +178,10 @@ demand — the two core GDPR rights of access and erasure.
 
 **Scope note.** The confirmation emails send in dev via Mailhog; delivering to
 real inboxes in production is an env-var swap. The `sendMail` helper is generic
-(no GDPR-specific logic), so the **2FA module can reuse it** for login codes.
-The frontend "Download my data" button and "Delete account" dialog are a
-follow-up that depends on the login/signup forms; the backend
-is fully testable via curl in the meantime.
+(no GDPR-specific logic), so other modules can reuse it. The frontend
+"Download my data" button and "Delete account" dialog are a follow-up that
+depends on the login/signup forms; the backend is fully testable via curl in
+the meantime.
 
 **Contributor.** maria.v.osokina
 
@@ -213,8 +224,8 @@ is not required for this module.
 backend/                Fastify + TypeScript API
   prisma/               Database schema and migrations
   src/
-    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts)
-    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts)
+    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts, wsRegistry.ts)
+    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts, alerts.ts, ws.ts)
     prisma.ts           Shared PrismaClient instance
     server.ts           App entry: plugin registration, health check
 docs/                   Project documentation
@@ -223,7 +234,7 @@ frontend/               React + TypeScript app
   src/
     components/         Shared UI (OfflineBanner, ToastProvider)
     lib/                API client (api.ts)
-    pages/              Route pages (Home, Login, Signup, Friends)
+    pages/              Route pages (HomePage, LoginPage, SignupPage, FriendsPage)
     App.tsx             Router and nav
     main.tsx            App entry: providers and root render
 docker-compose.yml
