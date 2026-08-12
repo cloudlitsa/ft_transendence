@@ -55,6 +55,48 @@ signs tokens with a publicly-known key. Better to refuse to boot.
 
 ---
 
+## Who can see what
+
+### Chat is a group conversation, not per-friend threads
+
+A `Message` belongs to an alert and has **no recipient field**. Its audience is
+everyone who can see the alert: the sender, plus the sender's accepted friends.
+Five friends receive a check-in, all five can post, and everyone sees the whole
+conversation.
+
+The alternative was per-friend threads — a `recipientId` on `Message`, so the
+sender holds a separate private conversation with each friend.
+
+We chose group because someone in a bad moment shouldn't have to repeat
+themselves five times, and because friends coordinating between themselves
+("I'm nearby, I'll call" / "I've got tonight") is the point of having a trusted
+circle rather than a list of individuals.
+
+**The trade-off we accepted:** a friend can't say something privately, and
+friends who don't know each other end up sharing a conversation about someone's
+state of mind. Anyone wanting a private word uses another channel. For a closed
+circle of people who all chose each other that's a reasonable default — but it
+is a choice, not an accident of the schema.
+
+### Closing an alert stops acknowledgements, not chat
+
+Once an alert is closed nobody else can acknowledge it, but the conversation
+stays open and messages can still be posted.
+
+Status describes the *alert*; the conversation belongs to the *people in it*,
+and the useful part often starts after someone says they're alright. There's
+nothing extra to build for this — chat access derives from the alert's
+audience, not from its status.
+
+### Chat access doesn't require acknowledging first
+
+Any accepted friend of the sender can post, whether or not they've acknowledged.
+Gating chat behind acknowledgement would mean two different trust boundaries on
+the same alert, and a confusing "I can see this but can't reply" state. One
+rule, applied in both places.
+
+---
+
 ## Data integrity
 
 ### Enforce invariants in the database, not in application code
