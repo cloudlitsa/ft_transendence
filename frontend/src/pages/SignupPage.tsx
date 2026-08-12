@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/AuthContext.tsx"
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -9,6 +10,7 @@ export default function SignupPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { refresh } = useAuth();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault(); // stop the browser's default full-page reload
@@ -27,8 +29,9 @@ export default function SignupPage() {
 
     setLoading(true);
     try {
-      // On success the backend sets the httpOnly auth cookie — user is now logged in.
+      // On success the backend sets the httpOnly auth cookie — user is now logged in and refresh() syncs the context.
       await api.post("/auth/signup", { email, password, displayName });
+      await refresh();
       navigate("/");
     } catch (err) {
       setError((err as Error).message); // api.ts throws the backend's message

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../lib/AuthContext.tsx"
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -8,15 +9,16 @@ export default function LoginPage() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
-
+  const { refresh } = useAuth();
   async function handleSubmit(e: FormEvent) {
     e.preventDefault(); // stop the browser's default full-page reload
     setError("");       // clear any error from a previous attempt
     setLoading(true);
     try {
-      // On success the backend sets the httpOnly auth cookie — user is now logged in.
+      // On success the backend sets the httpOnly auth cookie — user is now logged in  and refresh() syncs the context.
       await api.post("/auth/login", { email, password });
-      navigate("/");
+      await refresh();
+      navigate("/friends");
     } catch (err) {
       setError((err as Error).message); // api.ts throws the backend's message
     } finally {
@@ -26,7 +28,7 @@ export default function LoginPage() {
 
   return (
     <main>
-      <h1>Sign up</h1>
+      <h1>Log in</h1>
       <form onSubmit={handleSubmit}>
         <label style={{ display: "flex", flexDirection: "column" }}>
           Email
