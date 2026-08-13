@@ -99,7 +99,7 @@ export default function FriendsPage() { // the main component for the /friends p
   }
 
   // ---------- Render ---------- It's JSX, which looks like HTML but can include dynamic values and components. React transforms this into JavaScript calls to create the DOM elements.
-  if (loading) return <p>Loading…</p>;
+  if (loading) return <p>Loading ...</p>;
 
   return (
     <div>
