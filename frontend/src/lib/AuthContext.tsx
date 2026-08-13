@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { api } from "./api";
 
 interface User {
@@ -21,7 +21,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true); // start true: we haven't checked yet
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     try {
       const res = await api.get<{ user: User }>("/auth/me");
       setUser(res.user);
@@ -30,19 +30,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }
-  async function logout() {
-    await api.post("/auth/logout");
-    setUser(null);
-  }
+  }, []);
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      //ignore
+    } finally {
+      setUser(null);
+    }
+  }, []);
 
   // Run refresh() once when the app first loads.
   useEffect(() => {
     refresh();
-  }, []);
-
+  }, [refresh]);
+  const value = useMemo(
+    () => ({user, loading, refresh, logout
+}),
+    [user, loading, refresh, logout]
+  );
   return (
-    <AuthContext.Provider value={{ user, loading, refresh, logout }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );

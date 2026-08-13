@@ -16,8 +16,6 @@ export default function App() {
     await logout();
     navigate("/login");
   }
-  if (loading)
-    return <p>Loading ...</p>
   return (
     // Fragment (<>...</>) lets us return the full-width banner alongside the
     // centered content without adding an extra wrapping element.
@@ -29,7 +27,7 @@ export default function App() {
         {/* Simple nav. <Link> changes the URL without a full page reload. */}
         <nav style={{ display: "flex", gap: "1rem", marginBottom: "2rem" }}>
           <Link to="/">Home</Link>
-          {user ? (
+          {loading ? null : user ? (
             <>
               <Link to="/friends">Friends</Link>
               <button onClick={handleLogout}>Log out</button>

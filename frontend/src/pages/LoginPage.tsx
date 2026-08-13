@@ -50,7 +50,7 @@ export default function LoginPage() {
           {loading ? "Logging in…" : "Log in"}
         </button>
       </form>
-      {error && <p style={{ color: "#b00020" }}>{error}</p>}
+      {error && <p role="alert" style={{ color: "#b00020" }}>{error}</p>}
     </main>
   );
 }

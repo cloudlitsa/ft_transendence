@@ -72,7 +72,7 @@ export default function SignupPage() {
           {loading ? "Creating account…" : "Sign up"}
         </button>
       </form>
-      {error && <p style={{ color: "#b00020" }}>{error}</p>}
+      {error && <p role="alert" style={{ color: "#b00020" }}>{error}</p>}
     </main>
   );
 }
