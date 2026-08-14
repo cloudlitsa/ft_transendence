@@ -8,6 +8,7 @@
 
 import { useEffect, useRef } from "react";
 import { useToast } from "../components/ToastProvider.tsx";
+import { useAuth } from "./AuthContext.tsx";
 
 // Shape of what the server sends. Kept narrow on purpose: if the backend
 // starts sending a new message type, TypeScript won't pretend to know about
@@ -42,13 +43,13 @@ const ALERT_WORDING: Record<IncomingAlert["alertType"], string> = {
 // Reconnection: we chose the raw WebSocket API over Socket.IO, which means
 // reconnecting is ours to write. Back off exponentially so a server that's
 // down doesn't get hammered by every open tab, and give up after a while
-// rather than retrying forever — a logged-out user's upgrade is refused, and
-// without a cap that would retry until the tab closes.
+// rather than retrying forever — logged out means no socket at all
 const RECONNECT_BASE_MS = 1_000;
 const RECONNECT_MAX_MS = 30_000;
 const MAX_ATTEMPTS = 8;
 
 export function useAlertSocket() {
+  const { user } = useAuth();
   const toast = useToast();
 
   // The effect must not depend on `toast`: ToastProvider hands out a new
@@ -59,6 +60,12 @@ export function useAlertSocket() {
   toastRef.current = toast;
 
   useEffect(() => {
+    // No session, no socket. The server refuses the upgrade for an
+    // unauthenticated client anyway, but the point is stronger than that:
+    // a socket that outlives logout keeps delivering a stranger's check-ins
+    // to whoever sits down at the machine next.
+    if (!user) return;
+
     let socket: WebSocket | null = null;
     let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
     let attempts = 0;
@@ -150,5 +157,5 @@ export function useAlertSocket() {
       clearTimeout(reconnectTimer);
       socket?.close();
     };
-  }, []);
+  }, [user?.id]); // user.id is stable across re-renders, so this effect runs once per login/logout
 }
