@@ -345,7 +345,7 @@ export default function AlertsPage() {
             <button
               type="button"
               onClick={() => closeAlert(myAlert.id)}
-              disabled={busyId === myAlert.id}
+              disabled={busyId !== null}
             >
               {busyId === myAlert.id ? "Closing…" : "Close this check-in"}
             </button>
@@ -392,7 +392,7 @@ export default function AlertsPage() {
                       <button
                         type="button"
                         onClick={() => acknowledge(alert.id)}
-                        disabled={busyId === alert.id}
+                        disabled={busyId !== null}
                       >
                         {busyId === alert.id ? "Sending…" : "I see you"}
                       </button>
