@@ -274,7 +274,7 @@ export default function AlertsPage() {
                     />{" "}
                     {t.label}
                   </label>
-                  <p>{t.hint}</p>
+                  <p id={`hint-${t.value}`}>{t.hint}</p>
                 </div>
               ))}
             </fieldset>
