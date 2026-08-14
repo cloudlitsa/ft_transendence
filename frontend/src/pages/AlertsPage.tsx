@@ -227,7 +227,7 @@ export default function AlertsPage() {
         {/* role="alert" is announced immediately, interrupting. Correct here:
             everything below would otherwise be a confident lie. */}
         <p role="alert">Couldn't load your check-ins: {error}</p>
-        <button type="button" onClick={refresh}>Try again</button>
+        <button type="button" onClick={() => { setLoading(true); refresh(); }}>Try again</button>
       </main>
     );
   }
