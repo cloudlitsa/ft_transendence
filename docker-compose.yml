@@ -1,4 +1,25 @@
 services:
+  # ---- Reverse proxy: Caddy ----
+  # The only container that publishes ports. Terminates TLS and forwards
+  # to frontend and backend over the internal network.
+  proxy:
+    image: caddy:2-alpine
+    container_name: checkin_proxy
+    restart: unless-stopped
+    ports:
+      - "80:80"     # redirects to 443
+      - "443:443"   # the app
+    volumes:
+      # :ro = read-only. The proxy needs to read these, never write them.
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./certs:/etc/caddy/certs:ro
+      - caddy_data:/data      # Caddy's own state
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - internal
+
   # ---- Database container: PostgreSQL ----
   db:
     image: postgres:16-alpine
@@ -49,8 +70,6 @@ services:
     build: ./frontend
     container_name: checkin_frontend
     restart: unless-stopped
-    ports:
-      - "5173:5173"
     depends_on:
       - backend
     volumes:
@@ -72,6 +91,7 @@ services:
 
 volumes:
   db_data:
+  caddy_data:
 
 networks:
   internal:

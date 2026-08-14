@@ -33,3 +33,6 @@ Thumbs.db
 *.zip
 # for tests
 coverage/
+
+# SSL certificates - mkcert generates them in the certs/ folder, which is not needed in the repo
+certs/

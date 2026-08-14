@@ -1,0 +1,35 @@
+# Reverse proxy: the single public entry point for the app.
+#
+# Everything from a browser arrives here over HTTPS. Caddy terminates TLS and
+# forwards the request over the internal Docker network in plain HTTP, which
+# the subject permits: only connections from outside must be encrypted.
+#
+# No other container publishes a port, so there is no unencrypted way in.
+
+localhost {
+	# TLS certificate and private key, mounted read-only from ./certs.
+	# Generated per machine with mkcert (see README) and gitignored — a
+	# private key must never enter the repository.
+	tls /etc/caddy/certs/localhost+2.pem /etc/caddy/certs/localhost+2-key.pem
+
+	# API calls go to Fastify. This must come first: Caddy matches routes in
+	# order, and the catch-all below would otherwise swallow /api/* too.
+	#
+	# "backend" is the docker-compose service name; Docker's internal DNS
+	# resolves it to the container's address on the shared network, which is
+	# why no IP appears anywhere in this file.
+	handle /api/* {
+		reverse_proxy backend:3000
+	}
+
+	# Everything else is the app itself, served by the Vite dev server.
+	handle {
+		reverse_proxy frontend:5173
+	}
+}
+
+# Anyone arriving on plain HTTP is redirected to HTTPS rather than served.
+# Without this, http://localhost would simply fail to connect and look broken.
+http://localhost {
+	redir https://localhost{uri} permanent
+}

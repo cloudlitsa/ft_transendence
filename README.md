@@ -13,32 +13,38 @@ makes this clear to users and in its Terms of Service.
 
 ## Status: in development
 
-Core features taking shape — containerized app, TypeScript end to end,
-PostgreSQL with full schema, authentication, the friends system, and the
-alerts backend. See `PROJECT.md` for the full plan.
+Core features taking shape — containerized app served over HTTPS, TypeScript end
+to end, PostgreSQL with full schema, authentication, the friends system, and the
+alerts backend. See `docs/PROJECT.md` for the full plan.
 
 **Working now:**
 - Containerized dev environment (one command to run everything)
+- **HTTPS via a Caddy reverse proxy** — the single public entry point
 - TypeScript end to end (frontend + backend share types)
 - PostgreSQL database with full schema (users, friendships, alerts, acknowledgements, messages)
-- Auth backend: signup, login, logout, session check — hashed passwords, validated input, httpOnly cookie sessions
+- Auth: signup, login, logout, session check — hashed passwords, validated input,
+  httpOnly + Secure cookie sessions, with working UI forms and a route guard
 - Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
 - Alerts backend: send, view, acknowledge, close
 - In-app toast notifications, installable PWA with offline support
 
+**In review:**
+- Real-time alert delivery over WebSockets
+- Alerts UI (send / acknowledge / close check-ins)
+
 **Next:**
-- Signup / login UI forms (the API they call is already built)
-- Alerts UI
-- Real-time updates (WebSockets)
 - Chat
 - Profile page, avatar upload, online status
+- CSS framework and responsive pass
 
 ## Running it
 
 ### Prerequisites
 
 - Docker and Docker Compose installed
-- Port 5173 free
+- [mkcert](https://github.com/FiloSottile/mkcert) installed — on macOS:
+  `brew install mkcert nss` (`nss` lets mkcert write to Firefox's trust store too)
+- Ports 80 and 443 free
 
 ### Setup
 
@@ -53,19 +59,36 @@ alerts backend. See `PROJECT.md` for the full plan.
 
    The backend will refuse to start if `JWT_SECRET` is missing — this is deliberate.
 
-3. Start everything with one command:
+3. Generate a local TLS certificate. Everything reaches the app through an HTTPS
+   reverse proxy, so this is required before the containers will start:
+   ```
+   mkcert -install
+   mkdir -p certs && cd certs
+   mkcert localhost 127.0.0.1 ::1
+   cd ..
+   ```
+   `mkcert -install` adds a local certificate authority to your system trust
+   store (and Firefox's, if `nss` is installed), so the browser shows a normal
+   padlock rather than a warning. The generated certificate and key live in
+   `certs/`, which is **gitignored** — each machine generates its own, and a
+   private key must never enter the repository.
+
+4. Start everything with one command:
    ```
    docker compose up --build
    ```
 
-4. Create the database tables:
+5. Create the database tables:
    ```
    docker compose exec backend npx prisma migrate dev
    ```
    The database starts empty. Until you run this, the app will start but
    every request that touches the database will fail.
 
-5. Open the app: http://localhost:5173
+6. Open the app: **https://localhost**
+
+   Plain HTTP is redirected to HTTPS. No container other than the proxy publishes
+   a port, so there is no unencrypted route into the app.
 
 To stop: `docker compose down`
 To stop and wipe the database: `docker compose down -v`
@@ -77,14 +100,56 @@ To stop and wipe the database: `docker compose down -v`
 - **New migration** → `docker compose exec backend npx prisma migrate dev`
 - **Editor showing phantom type errors** → `cd backend && npm install`
   (the container and your host have separate `node_modules`)
+- **First time on this branch** → generate certificates (step 3 above); Caddy
+  won't start without them
 
 ## Tech stack
 
 - **Frontend:** React + TypeScript + Vite, react-router-dom
 - **Backend:** Fastify + TypeScript
 - **Database:** PostgreSQL with Prisma ORM
-- **Auth:** bcryptjs password hashing, JWT in httpOnly cookies, Zod input validation
-- **Orchestration:** Docker Compose (frontend, backend, database, mailhog containers)
+- **Auth:** bcryptjs password hashing, JWT in httpOnly + Secure cookies, Zod input validation
+- **Proxy:** Caddy (TLS termination, routing, HTTP→HTTPS redirect)
+- **Orchestration:** Docker Compose (proxy, frontend, backend, database, mailhog containers)
+
+## Mandatory requirements
+
+### HTTPS
+
+**What it is.** Every connection reaching the app from a browser, script or
+external API is encrypted. Connections *inside* the backend (proxy↔frontend,
+proxy↔backend, backend↔database) stay unencrypted on the internal Docker
+network, which the subject permits.
+
+**How it's implemented.**
+- **`Caddyfile`** — one site block for `localhost`. `handle /api/*` forwards to
+  `backend:3000`; a catch-all `handle` forwards everything else to
+  `frontend:5173`. Order matters: the catch-all would otherwise swallow API
+  calls too. A second block redirects `http://localhost` to HTTPS, so plain HTTP
+  doesn't simply fail to connect.
+- **`docker-compose.yml`** — the `proxy` service is the only one that publishes
+  ports (80 and 443). The frontend's old `5173:5173` mapping was **removed**, so
+  the requirement is satisfied structurally: there is no unencrypted way in,
+  rather than an encrypted way that happens to be preferred.
+- **Certificates** are generated per machine with mkcert into a gitignored
+  `certs/` directory and mounted read-only into the proxy container.
+- **WebSocket upgrades** — both the app's `/api/ws` socket and Vite's hot-reload
+  socket pass through the proxy. Caddy forwards `Upgrade` / `Connection` headers
+  transparently, so no additional configuration was needed.
+- **Secure cookie** — the auth cookie is marked `Secure`, so the browser will
+  only ever send it over HTTPS. It defaults to on; `ALLOW_INSECURE_COOKIE=true`
+  opts out for an environment running without the proxy. The default is the safe
+  one, so a missing or mistyped variable leaves the cookie secure.
+
+**How to verify.**
+1. Open `https://localhost` — padlock in the address bar, no certificate warning.
+   Clicking it shows "Verified by: mkcert development CA".
+2. `http://localhost` redirects to `https://localhost`.
+3. `http://localhost:5173` fails to connect — that port no longer exists.
+4. DevTools → Storage → Cookies → `auth_token` shows `Secure: true` and
+   `HttpOnly: true`.
+5. Backend logs show requests arriving from the proxy, never from a browser
+   directly.
 
 ## Modules
 
@@ -164,9 +229,11 @@ demand — the two core GDPR rights of access and erasure.
 
 **How to verify.**
 1. `docker compose up --build`, then sign up via curl to get a session cookie
-   (`curl -c cookies.txt -X POST localhost:5173/api/auth/signup -H 'Content-Type:
+   (`curl -c cookies.txt -X POST https://localhost/api/auth/signup -H 'Content-Type:
    application/json' -d '{"email":"t@x.com","password":"secret123","displayName":"T"}'`).
-2. **Export** — `curl -b cookies.txt localhost:5173/api/account/export` returns
+   The mkcert CA is in the system trust store, so curl accepts the certificate
+   without `-k`.
+2. **Export** — `curl -b cookies.txt https://localhost/api/account/export` returns
    all five sections as JSON, with **no `passwordHash`** field.
 3. **Delete** — no password → `400`; wrong password → `403`; correct password →
    `{"ok":true}`. Afterwards any guarded route returns `401` "Account no longer
@@ -179,9 +246,7 @@ demand — the two core GDPR rights of access and erasure.
 **Scope note.** The confirmation emails send in dev via Mailhog; delivering to
 real inboxes in production is an env-var swap. The `sendMail` helper is generic
 (no GDPR-specific logic), so other modules can reuse it. The frontend
-"Download my data" button and "Delete account" dialog are a follow-up that
-depends on the login/signup forms; the backend is fully testable via curl in
-the meantime.
+"Download my data" button and "Delete account" dialog are a follow-up.
 
 **Contributor.** maria.v.osokina
 
@@ -221,6 +286,8 @@ is not required for this module.
 ## Project structure
 
 ```
+Caddyfile               Reverse proxy config: TLS, routing, HTTP→HTTPS redirect
+certs/                  Local TLS certificate and key (gitignored, per machine)
 backend/                Fastify + TypeScript API
   prisma/               Database schema and migrations
   src/
@@ -232,9 +299,9 @@ docs/                   Project documentation
 frontend/               React + TypeScript app
   public/               Static assets (favicon, PWA icons, screenshots)
   src/
-    components/         Shared UI (OfflineBanner, ToastProvider)
-    lib/                API client (api.ts)
-    pages/              Route pages (HomePage, LoginPage, SignupPage, FriendsPage)
+    components/         Shared UI (OfflineBanner, ToastProvider, RequireAuth)
+    lib/                API client (api.ts), auth context, alert socket hook
+    pages/              Route pages (Home, Login, Signup, Friends, Alerts)
     App.tsx             Router and nav
     main.tsx            App entry: providers and root render
 docker-compose.yml
@@ -242,5 +309,5 @@ docker-compose.yml
 
 ## Resources
 
-- Fastify, Vite, React, Prisma, PostgreSQL documentation
+- Fastify, Vite, React, Prisma, PostgreSQL, Caddy documentation
 - (AI usage documented per README requirements as the project develops.)

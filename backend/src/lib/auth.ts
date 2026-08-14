@@ -33,18 +33,17 @@ export function verifyToken(token: string): TokenPayload | null {
   }
 }
 
-// Cookie settings used everywhere we set or clear the auth cookie.
-// - httpOnly: JavaScript in the browser cannot read it (XSS protection)
-// - sameSite "lax": cookie not sent on cross-site POSTs (CSRF mitigation)
-// - secure: only send over HTTPS. False in dev (we're on plain http://localhost),
-//   MUST be true in production. Controlled by NODE_ENV.
-// - path "/": valid for the whole site
+ // Secure: the browser only sends this cookie over HTTPS. Everything reaches
+  // the app through the Caddy reverse proxy, which is HTTPS-only, so this is
+  // true in dev as well as production. Set ALLOW_INSECURE_COOKIE=true only if
+  // running without the proxy.
+  
 export const AUTH_COOKIE = "auth_token";
 
 export const cookieOptions = {
   httpOnly: true,
   sameSite: "lax" as const,
-  secure: process.env.NODE_ENV === "production",
+  secure: process.env.ALLOW_INSECURE_COOKIE !== "true",
   path: "/",
   maxAge: 60 * 60 * 24 * 7, // 7 days, in seconds — matches TOKEN_LIFETIME
 };
