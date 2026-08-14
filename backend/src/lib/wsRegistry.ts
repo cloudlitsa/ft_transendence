@@ -1,6 +1,6 @@
 // In-memory registry of connected WebSocket clients, keyed by userId.
 // This is the heart of the module: "who is online, and how do I reach them."
-import type { WebSocket } from "ws";
+import { WebSocket } from "ws";
 
 // One user can have MULTIPLE sockets at once — two browser tabs, a laptop
 // and a phone. If we stored a single socket per user, opening a second tab
@@ -43,7 +43,7 @@ export function broadcastToUsers(userIds: string[], payload: unknown) {
     for (const socket of set) {
       // readyState guard: a socket can be half-closed (CLOSING) while
       // still in the registry for a few ms. Sending to it throws.
-      if (socket.readyState === socket.OPEN) {
+      if (socket.readyState === WebSocket.OPEN) {
         socket.send(message);
       }
     }
