@@ -4,12 +4,14 @@ import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import FriendsPage from "./pages/FriendsPage.tsx";
 import OfflineBanner from "./components/OfflineBanner.tsx";
+import { useAlertSocket } from "./lib/useAlertSocket.ts";
 import { useAuth } from "./lib/AuthContext.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
 
 // App is now the router for the whole app. It decides what page to render based on the URL path.
 // Routes is a container for all the Route components. Each Route component defines a path and the component to render when the path matches the URL.
 export default function App() {
+  useAlertSocket();
   const { user, loading, logout } = useAuth();
   const navigate = useNavigate();
   async function  handleLogout(){

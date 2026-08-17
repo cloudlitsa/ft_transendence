@@ -6,7 +6,9 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
+import { getFriendIds } from "../lib/friendships.js";
 import { Prisma } from "@prisma/client";
+import { broadcastToUsers } from "../lib/wsRegistry.js";
 
 // ---------- Validation ----------
 // z.enum matches the Prisma AlertType enum values exactly. Invalid types
@@ -48,8 +50,22 @@ export async function alertsRoutes(fastify: FastifyInstance) {
           note, // undefined → column stays NULL, Prisma handles it
           // status defaults to "active" per the schema
         },
-        select: { id: true, alertType: true, note: true, status: true, createdAt: true },
+        select: { 
+          id: true, 
+          alertType: true, 
+          note: true, 
+          status: true, 
+          createdAt: true,
+          sender: { select: { id: true, displayName: true, avatarUrl: true } }, 
+        },
       });
+
+      // Tell the sender's friends in real time. Same trust boundary as the
+      // GET endpoint — only accepted friends, not every connected socket.
+      // Offline friends simply aren't in the registry; nothing to do.
+      const friendIds = await getFriendIds(me);
+      broadcastToUsers(friendIds, { type: "alert:new", alert });
+
       return reply.code(201).send({ alert });
     } catch (err) {
       // P2002 = unique constraint violation. With the partial index, this
@@ -69,18 +85,10 @@ export async function alertsRoutes(fastify: FastifyInstance) {
   fastify.get("/", async (request, reply) => {
     const me = authedUserId(request);
 
-    // 1. Who are my accepted friends? Reuse the friends pattern:
-    //    a friendship row where I'm userA or userB and status is accepted.
-    const friendships = await prisma.friendship.findMany({
-      where: {
-        status: "accepted",
-        OR: [{ userIdA: me }, { userIdB: me }],
-      },
-      select: { userIdA: true, userIdB: true },
-    });
-
-    // For each row, the friend is whichever side isn't me.
-    const friendIds = friendships.map((f) => (f.userIdA === me ? f.userIdB : f.userIdA));
+    // 1. Who are my accepted friends? Shared helper (lib/friendships.ts) so
+    //    this endpoint and the WebSocket broadcast can't drift apart on who
+    //    counts as a friend.
+    const friendIds = await getFriendIds(me);
 
     // 2. My own active alert (if any), with who has acknowledged it.
     const myAlert = await prisma.alert.findFirst({
