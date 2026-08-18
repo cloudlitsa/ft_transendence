@@ -4,6 +4,8 @@ import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import FriendsPage from "./pages/FriendsPage.tsx";
 import ProfilePage from "./pages/ProfilePage.tsx";
+import UserProfilePage from "./pages/UserProfilePage.tsx";
+
 import OfflineBanner from "./components/OfflineBanner.tsx";
 import { useAlertSocket } from "./lib/useAlertSocket.ts";
 import { useAuth } from "./lib/AuthContext.tsx";
@@ -50,6 +52,7 @@ export default function App() {
           <Route path="/signup" element={<SignupPage />} />
           <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+          <Route path="/profile/:id" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
         </Routes>
       </div>
     </>

@@ -1,6 +1,10 @@
 import { useEffect, useState, type FormEvent } from "react"; // React hooks let us remember state and run code when the page first renders.
 import { api } from "../lib/api";
 import { useToast } from "../components/ToastProvider.tsx"; // fire notifications on create/update/delete actions
+import { Link } from "react-router-dom";
+
+
+const DEFAULT_AVATAR = "/default-avatar.png";
 
 // ---------- Types matching the backend responses ----------
 interface FriendUser { // the user on the other side of a friendship. the backend sends this shape in both /friends and /friends/pending. interface means "the other user" in the friendship, not "me".
@@ -125,7 +129,14 @@ export default function FriendsPage() { // the main component for the /friends p
         {incoming.length === 0 && <p>None</p>}
         <ul>
           {incoming.map((entry) => (
-            <li key={entry.friendshipId}>
+            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <img
+                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
+                alt=""
+                width={32}
+                height={32}
+                style={{ borderRadius: "50%", objectFit: "cover" }}
+              />
               {entry.user.displayName} ({entry.user.email}){" "}
               <button onClick={() => accept(entry.friendshipId)}>Accept</button>{" "}
               <button onClick={() => declineOrCancel(entry.friendshipId)}>Decline</button>
@@ -138,8 +149,15 @@ export default function FriendsPage() { // the main component for the /friends p
         <h2>Outgoing requests</h2>
         {outgoing.length === 0 && <p>None</p>}
         <ul>
-          {outgoing.map((entry) => ( // the outgoing list is the requests I sent that are still pending. I can cancel them, but I can't accept or decline them because I'm the requester. map is a JavaScript array method that transforms each element of the array into a new value. In this case, we transform each FriendEntry into a <li> element with the user's display name and email, and a Cancel button that calls declineOrCancel with the friendshipId. React requires a unique key for each element in a list, so it can efficiently update the DOM when the list changes. We use friendshipId as the key because it's unique for each friendship.
-            <li key={entry.friendshipId}>  
+          {outgoing.map((entry) => (
+            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <img
+                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
+                alt=""
+                width={32}
+                height={32}
+                style={{ borderRadius: "50%", objectFit: "cover" }}
+              />
               {entry.user.displayName} ({entry.user.email}){" "}
               <button onClick={() => declineOrCancel(entry.friendshipId)}>Cancel</button>
             </li>
@@ -147,14 +165,22 @@ export default function FriendsPage() { // the main component for the /friends p
         </ul>
       </section>
 
-      <section> 
+      <section>
         <h2>My friends</h2>
         {friends.length === 0 && <p>No friends</p>}
         <ul>
           {friends.map((entry) => (
-            <li key={entry.friendshipId}>
-              {entry.user.displayName} ({entry.user.email}){" "} 
-              <button onClick={() => unfriend(entry.friendshipId)}>Unfriend</button> 
+            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <img
+                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
+                alt=""
+                width={32}
+                height={32}
+                style={{ borderRadius: "50%", objectFit: "cover" }}
+              />
+              <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
+              ({entry.user.email}){" "}
+              <button onClick={() => unfriend(entry.friendshipId)}>Unfriend</button>
             </li>
           ))}
         </ul>
