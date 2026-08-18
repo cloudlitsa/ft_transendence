@@ -9,7 +9,7 @@
 import { useEffect, useRef } from "react";
 import { useToast } from "../components/ToastProvider.tsx";
 import { useAuth } from "./AuthContext.tsx";
-
+import { useAlerts } from "./AlertsContext.tsx";
 // Shape of what the server sends. Kept narrow on purpose: if the backend
 // starts sending a new message type, TypeScript won't pretend to know about
 // it and the switch below will fall through harmlessly.
@@ -50,6 +50,7 @@ const MAX_ATTEMPTS = 8;
 
 export function useAlertSocket() {
   const { user } = useAuth();
+  const { setFriendsAlerts } = useAlerts();
   const toast = useToast();
 
   // The effect must not depend on `toast`: ToastProvider hands out a new
@@ -110,6 +111,17 @@ export function useAlertSocket() {
                 ? `${sender.displayName} ${wording}: ${note}`
                 : `${sender.displayName} ${wording}`,
             );
+            // Add it to the shared list so /alerts updates without a refresh.
+            // The function form gives us the CURRENT list — reading friendsAlerts
+            // from the closure would give whatever it was when this effect ran.
+            setFriendsAlerts((current) => {
+              // A fetch and a push can deliver the same alert. Adding it twice
+              // renders duplicate rows with duplicate React keys.
+              if (current.some((a) => a.id === message.alert.id)) return current;
+              // A NEW array — current.push() mutates in place, React compares by
+              // identity and would see nothing changed. Newest first.
+              return [{ ...message.alert, acknowledgements: [] }, ...current];
+            });
             break;
           }
         }
