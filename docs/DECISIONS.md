@@ -247,3 +247,14 @@ tree into the project and reports more findings than it fixes.
 Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
+
+## Avatar Storage: Files on Disk, Not in the Database
+
+We store uploaded avatars in a folder on disk (`/app/uploads` in the backend container
+with a named Docker volume) and serve them as static files using `@fastify/static`. The
+`users.avatar_url` column only contains the URL path, not the actual image data.
+
+**Why Not Store Bytes in PostgreSQL?**  Storing images in the database makes it larger, slows down avatar loading because it requires extra database calls, and increases backup sizes. Keeping files on disk allows the database to stay small and supports efficient file serving.
+
+**Validation and Safety:**  We validate every upload **server-side**: only jpeg, png, and webp files are accepted, and size is capped at 2 MB via `@fastify/multipart`. We generate
+random filenames for stored files (the client's filename is never trusted) and delete the old file when an avatar is replaced. If `avatar_url` is empty, a default avatar is shown.
