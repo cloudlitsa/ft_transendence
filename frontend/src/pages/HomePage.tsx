@@ -26,7 +26,7 @@ export default function HomePage() {
 
   return (
     <main>
-      <h1>Check-in app</h1>
+      <h1 className="text-3xl font-bold text-blue-600">Check-in app</h1>
       <p>Skeleton. If everything below stays connected, the three containers can talk to each other.</p>
 
       {error && (
