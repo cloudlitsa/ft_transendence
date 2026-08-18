@@ -159,6 +159,116 @@ end up with duplicate rows describing the same relationship.
 
 `requestedBy` is stored separately, so "who asked" survives the ordering.
 
+### Injection and XSS: why the defence is structural
+
+Two classic web attacks involve a user typing something that stops being
+*data* and starts being *instructions*. Neither is possible here, and in both
+cases that comes from how the tools work rather than from anything clever we
+wrote.
+
+#### SQL injection
+
+**The attack.** Some apps build database queries by gluing strings together:
+
+```
+SELECT * FROM users WHERE email = '<whatever they typed>'
+```
+
+If someone types `' OR 1=1--` into the email box, the database receives:
+
+```
+SELECT * FROM users WHERE email = '' OR 1=1--'
+```
+
+The apostrophe closed the text early, so everything after it is read as
+database instructions instead of as an email address. `OR 1=1` is always true,
+so the query matches every user, and `--` comments out the rest so there is no
+syntax error. The attacker is logged in as somebody else.
+
+**Why it can't happen here.** We never build SQL by gluing strings together.
+Prisma sends the query and the values to Postgres as two separate things:
+
+- the instruction: `WHERE email = $1`
+- the value: `$1 = "whatever they typed"`
+
+SQL injection. Prisma never builds queries by joining strings. The
+instruction (WHERE email = $1) and the value are sent to the database
+separately. The database works out what the query means before the user's
+text arrives, so by then the shape of the query is fixed and the text can
+only be a value. If someone types SQL into the email box, the database
+simply looks for a user whose email address is that exact text, and doesn't
+find one.
+
+**The one exception to know about.** Prisma has `$queryRawUnsafe` and
+`$executeRawUnsafe`, which *do* glue strings together and would reintroduce
+the risk. We don't use them.
+
+We do use raw SQL in two places, both safe:
+
+- `backend/src/server.ts` — the health check runs `SELECT NOW() as time`,
+  a fixed string with no user input.
+- The migration adding the partial unique index on active alerts — a fixed
+  migration, run once, with no user input.
+
+Both use the backtick form, `` $queryRaw`...` ``, which is a tagged template.
+Even if a value were interpolated into it, Prisma extracts that value and
+sends it as a bound parameter rather than pasting it into the SQL text. The
+string-concatenating behaviour only exists in the `Unsafe` variants.
+
+#### Cross-site scripting (XSS)
+
+**The attack.** Someone sets their display name to:
+
+```
+<script>alert(1)</script>
+```
+
+If the app drops that text into the page as HTML, then when a *different* user
+opens their friends list, their browser sees a real `<script>` tag and runs it.
+`alert(1)` just shows a popup, which is why it's the standard harmless test.
+A real attack would read the victim's session or act as them.
+
+This matters for us specifically: display names and check-in notes are written
+by one user and shown on another user's screen. That is exactly the situation
+XSS needs.
+
+**Why it can't happen here.** When React renders `{user.displayName}`, it sets
+that value as **text**, not as HTML. The browser method React uses for text
+does not parse tags at all — a `<` character stays a `<` character on screen.
+So a display name containing `<script>` shows up as the literal, visible
+characters `<script>alert(1)</script>`, which looks silly but is completely
+inert.
+
+Again, nothing is being stripped or filtered. The text simply never reaches
+the part of the browser that turns tags into elements.
+
+**The one exception to know about.** React has an escape hatch called
+`dangerouslySetInnerHTML`, which does insert raw HTML. It is deliberately given
+an alarming name. We don't use it.
+
+#### What we still validate, and why
+
+Since neither attack is possible, validation is doing a different job:
+
+- **Backend (Zod)** — rejects data that would be *wrong* rather than
+  dangerous: malformed emails, passwords under 8 characters, missing fields,
+  absurdly long strings. This is the security boundary, because anyone can
+  bypass the browser and post directly to the API with curl.
+- **Frontend** — mirrors the same rules purely so the user gets an instant,
+  helpful error instead of a round trip. It is a convenience, not a
+  protection, and we assume it can be skipped entirely.
+
+#### How to demonstrate this at evaluation
+
+1. Sign up with the display name `<script>alert(1)</script>`
+2. Add that account as a friend from a second account
+3. Open the friends list — the name appears as visible text, no popup
+4. Try `' OR 1=1--` in the login email field — a normal "invalid credentials"
+   response, no 500, no login
+
+A 500 error on either would be the warning sign: it would mean the input
+reached somewhere it should never have got to.
+
 ---
 
 ## Stack choices
