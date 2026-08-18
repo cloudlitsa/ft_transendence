@@ -36,3 +36,6 @@ coverage/
 
 # SSL certificates - mkcert generates them in the certs/ folder, which is not needed in the repo
 certs/
+
+#my own notes
+/notes/
