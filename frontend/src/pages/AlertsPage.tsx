@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { api } from "../lib/api";
 import { useToast } from "../components/ToastProvider.tsx";
 import { Link } from "react-router-dom";
+import { useAlerts } from "../lib/AlertsContext.tsx";
 // ---------- Types matching the backend responses ----------
 // These mirror the `select` blocks in backend/src/routes/alerts.ts. If that
 // select changes, this changes too — there is no shared type package, so the
@@ -95,7 +96,7 @@ function formatWhen(iso: string): string {
 export default function AlertsPage() {
   // ---------- State ----------
   const [myAlert, setMyAlert] = useState<MyAlert | null>(null);
-  const [friendsAlerts, setFriendsAlerts] = useState<FriendAlert[]>([]);
+  const { friendsAlerts, setFriendsAlerts } = useAlerts();
   const [friendCount, setFriendCount] = useState(0);
   const [loading, setLoading] = useState(true);
 

@@ -10,6 +10,7 @@ import OfflineBanner from "./components/OfflineBanner.tsx";
 import { useAlertSocket } from "./lib/useAlertSocket.ts";
 import { useAuth } from "./lib/AuthContext.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
+import AlertsPage from "./pages/AlertsPage.tsx";
 
 // App is now the router for the whole app. It decides what page to render based on the URL path.
 // Routes is a container for all the Route components. Each Route component defines a path and the component to render when the path matches the URL.
@@ -36,6 +37,7 @@ export default function App() {
             <>
               <Link to="/profile">Profile</Link>
               <Link to="/friends">Friends</Link>
+              <Link to="/alerts">Check-ins</Link>
               <button onClick={handleLogout}>Log out</button>
             </>
           ): (
@@ -53,6 +55,7 @@ export default function App() {
           <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
           <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
           <Route path="/profile/:id" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
+          <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
         </Routes>
       </div>
     </>
