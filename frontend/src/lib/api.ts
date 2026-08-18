@@ -62,8 +62,11 @@ export const api = {
   // 'delete' is a reserved-ish word people avoid as a bare identifier;
   // as an object property it's fine.
   
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
-  
+  delete: <T>(path: string, data?: unknown) =>
+    request<T>(path, {
+      method: "DELETE",
+      body: data ? JSON.stringify(data) : undefined,
+    }),  
   patch: <T>(path: string, data?: unknown) =>
     request<T>(path, {
       method: "PATCH",

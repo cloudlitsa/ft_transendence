@@ -2,6 +2,7 @@ import { useState, type FormEvent, type ChangeEvent } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { api } from "../lib/api";
+import { useNavigate } from "react-router-dom";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — must match the backend limit
@@ -10,6 +11,7 @@ const ALLOWED = ["image/jpeg", "image/png", "image/webp"];
 export default function ProfilePage() {
   const { user, refresh } = useAuth();
   const toast = useToast();
+  const navigate = useNavigate();
 
   const [name, setName] = useState(user?.displayName ?? "");
   const [savingName, setSavingName] = useState(false);
@@ -17,6 +19,12 @@ export default function ProfilePage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  // GDPR delete-account confirmation
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [password, setPassword] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
 
   // RequireAuth guarantees a user here; this guard just satisfies TypeScript.
   if (!user) return null;
@@ -89,6 +97,32 @@ export default function ProfilePage() {
       setBusy(false);
     }
   }
+//  GDPR: download all my data 
+  function exportData() {
+    // Hitting the endpoint directly triggers the browser download
+    // (the backend sends Content-Disposition: attachment).
+    window.location.href = "/api/account/export";
+  }
+
+  //  GDPR: permanently delete my account 
+  async function deleteAccount(e: FormEvent) {
+    e.preventDefault();
+    if (!password) {
+      toast.error("Enter your password to confirm");
+      return;
+    }
+    setDeleting(true);
+    try {
+      await api.delete("/account", { password });
+      toast.success("Account deleted");
+      await refresh();   // /auth/me now 401s → clears the user app-wide
+      navigate("/");     // leave the (now inaccessible) profile page
+    } catch (err) {
+      toast.error((err as Error).message); // "Incorrect password", etc.
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   // What to show: the local preview if picking, else the saved avatar, else default.
   const shownAvatar = preview ?? user.avatarUrl ?? DEFAULT_AVATAR;
@@ -137,6 +171,45 @@ export default function ProfilePage() {
           {savingName ? "Saving…" : "Save"}
         </button>
       </form>
+      {/*  Account (GDPR)  */}
+      <hr style={{ margin: "2rem 0" }} />
+      <section>
+        <h2>Account</h2>
+
+        <button onClick={exportData}>Download my data</button>
+
+        <div style={{ marginTop: "1rem" }}>
+          {!confirmingDelete ? (
+            <button onClick={() => setConfirmingDelete(true)}>
+              Delete account
+            </button>
+          ) : (
+            <form onSubmit={deleteAccount}>
+              <p style={{ color: "#b91c1c" }}>
+                This permanently deletes your account and all your data. Enter
+                your password to confirm.
+              </p>
+              <input
+                type="password"
+                aria-label="Confirm your password"
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button type="submit" disabled={deleting} style={{ marginLeft: "0.5rem" }}>
+                {deleting ? "Deleting…" : "Confirm delete"}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setConfirmingDelete(false); setPassword(""); }}
+                style={{ marginLeft: "0.5rem" }}
+              >
+                Cancel
+              </button>
+            </form>
+          )}
+        </div>
+      </section>
     </div>
   );
 }
