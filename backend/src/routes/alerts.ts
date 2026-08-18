@@ -181,16 +181,45 @@ export async function alertsRoutes(fastify: FastifyInstance) {
     // Insert the acknowledgement. If I've already acknowledged, the composite
     // PK (alertId, userId) throws P2002 — which we treat as success, because
     // the desired state ("I've acknowledged this") is already true.
+    // Shape of what the sender needs to render this acknowledgement.
+    // Declared explicitly so the broadcast payload can't drift from
+    // what myAlert.acknowledgements looks like in GET /api/alerts.
+    type AckPayload = {
+      acknowledgedAt: Date;
+      user: { id: string; displayName: string; avatarUrl: string | null };
+    };
+
+    let ack: AckPayload;
     try {
-      await prisma.acknowledgement.create({
+      // select the acknowledger in the same query the row is created in —
+      // the broadcast needs a display name, and a second lookup for data
+      // Prisma can return here would be a wasted round trip.
+      ack = await prisma.acknowledgement.create({
         data: { alertId: id, userId: me },
+        select: {
+          acknowledgedAt: true,
+          user: { select: { id: true, displayName: true, avatarUrl: true } },
+        },
       });
     } catch (err) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002") {
+        // Already acknowledged: the desired state is already true, so the
+        // request succeeds — but nothing changed, so nothing is broadcast.
+        // Re-emitting would duplicate the entry in the sender's UI.
         return reply.send({ ok: true, alreadyAcknowledged: true });
       }
       throw err;
     }
+
+    // Tell the sender, and only the sender. GET /api/alerts filters
+    // acknowledgements to the requesting user so friends never learn who
+    // else responded; broadcasting more widely would leak over the socket
+    // what the REST endpoint deliberately withholds.
+    broadcastToUsers([alert.senderId], {
+      type: "alert:ack",
+      alertId: id,
+      acknowledgement: ack,
+    });
 
     return reply.send({ ok: true });
   });
