@@ -215,11 +215,20 @@ export async function alertsRoutes(fastify: FastifyInstance) {
     // acknowledgements to the requesting user so friends never learn who
     // else responded; broadcasting more widely would leak over the socket
     // what the REST endpoint deliberately withholds.
-    broadcastToUsers([alert.senderId], {
-      type: "alert:ack",
-      alertId: id,
-      acknowledgement: ack,
-    });
+    // Best-effort by design. The acknowledgement is already committed, so a
+    // failed notification must not fail the request — the sender's next fetch
+    // of GET /api/alerts will show it regardless. A separate try/catch, not
+    // the one above: a socket error is not a database error, and folding it
+    // into the P2002 check would turn a successful write into a 500.
+    try {
+      broadcastToUsers([alert.senderId], {
+        type: "alert:ack",
+        alertId: id,
+        acknowledgement: ack,
+      });
+    } catch (err) {
+      request.log.error({ err }, "failed to broadcast alert:ack");
+    }
 
     return reply.send({ ok: true });
   });
