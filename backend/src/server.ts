@@ -6,6 +6,7 @@ import { friendsRoutes } from "./routes/friends.js";
 import { alertsRoutes } from "./routes/alerts.js";
 import { gdprRoutes } from "./routes/gdpr.js";
 import { wsRoutes } from "./routes/ws.js";
+import { profileRoutes } from "./routes/profile.js";
 
 const fastify = Fastify({ logger: true });
 
@@ -23,6 +24,8 @@ await fastify.register(alertsRoutes, { prefix: "/api/alerts" });
 await fastify.register(gdprRoutes, { prefix: "/api/account" });
 
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
+
+await fastify.register(profileRoutes, { prefix: "/api/profile"});
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
