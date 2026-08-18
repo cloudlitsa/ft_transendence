@@ -168,31 +168,8 @@ wrote.
 
 #### SQL injection
 
-**The attack.** Some apps build database queries by gluing strings together:
-
-```
-SELECT * FROM users WHERE email = '<whatever they typed>'
-```
-
-If someone types `' OR 1=1--` into the email box, the database receives:
-
-```
-SELECT * FROM users WHERE email = '' OR 1=1--'
-```
-
-The apostrophe closed the text early, so everything after it is read as
-database instructions instead of as an email address. `OR 1=1` is always true,
-so the query matches every user, and `--` comments out the rest so there is no
-syntax error. The attacker is logged in as somebody else.
-
-**Why it can't happen here.** We never build SQL by gluing strings together.
-Prisma sends the query and the values to Postgres as two separate things:
-
-- the instruction: `WHERE email = $1`
-- the value: `$1 = "whatever they typed"`
-
-SQL injection. Prisma never builds queries by joining strings. The
-instruction (WHERE email = $1) and the value are sent to the database
+Prisma never builds queries by joining strings. The
+instruction (`WHERE email = $1`) and the value are sent to the database
 separately. The database works out what the query means before the user's
 text arrives, so by then the shape of the query is fixed and the text can
 only be a value. If someone types SQL into the email box, the database
