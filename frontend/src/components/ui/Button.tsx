@@ -12,7 +12,7 @@ const base =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
   "disabled:opacity-50 disabled:cursor-not-allowed";        // focus-visible only shows ring for keyboard navigation, not mouse click which is annoying. 
 
-const variants: Record<Variant, string> = {     // not conditional, so it fails at compile time if you forget one - rather than silently failling to the default.
+const variants: Record<Variant, string> = {     // not conditional, so it fails at compile time if you forget one - rather than silently failing to the default.
   primary:   "bg-brand-600 text-white hover:bg-brand-700 focus-visible:ring-brand-500",
   secondary: "bg-surface text-ink border border-line hover:bg-surface-sunken focus-visible:ring-brand-500",
   danger:    "bg-danger-600 text-white hover:bg-danger-700 focus-visible:ring-danger-600",
