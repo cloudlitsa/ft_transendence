@@ -13,7 +13,7 @@ export default function Spinner({ className = "size-4" }: SpinnerProps) {
     >
       <circle
         cx="12" cy="12" r="10"
-        stroke="currentColor" strokeWidth="4"   // "currentColoor" because the parent can set the color with text-blue-600, text-gray-400, etc.
+        stroke="currentColor" strokeWidth="4"   // "currentColor" because the parent can set the color with text-blue-600, text-gray-400, etc.
         className="opacity-25"
       />
       <path
