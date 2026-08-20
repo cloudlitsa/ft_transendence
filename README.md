@@ -118,9 +118,9 @@ To stop: `docker compose down`
   then `docker compose restart frontend`
 
   A rebuild alone won't pick either of these up. `node_modules` is mounted as a
-  volume that shadows the host directory, so git can't touch it and
-  `--no-cache` doesn't refresh it. The restart matters separately: config files
-  like `vite.config.js` are read once at startup.
+  volume that shadows the host directory, so git can't touch it and even
+  `docker compose build --no-cache` doesn't refresh it. The restart matters
+  separately: config files like `vite.config.js` are read once at startup.
 
 - **New migration** → `docker compose exec backend npx prisma migrate deploy`
 
