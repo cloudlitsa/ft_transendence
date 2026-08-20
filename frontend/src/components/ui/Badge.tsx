@@ -23,10 +23,11 @@ interface BadgeProps {
   tone?: Tone;
   appearance?: Appearance;
   /**
-   * The label. Rendered as text in a pill; used as the accessible name
-   * (and nothing visual) for a dot.
+   * The label/content.
+   * - In a pill, this is rendered as-is.
+   * - In a dot, it is only rendered for screen readers (visually hidden).
    */
-  children: ReactNode;      /**  the content inside the badge */
+  children: ReactNode;
   /**
    * Announce changes to assistive tech. Use for values that update in
    * place — online status, alert state. Off by default: a static badge
