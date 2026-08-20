@@ -13,7 +13,7 @@ const tones: Record<Tone, { box: string; icon: IconName }> = {
 interface BannerProps {
   tone?: Tone;
   children: ReactNode;
-    /** Renders a dismiss button when provided. */
+  /** Renders a dismiss button when provided. */
   onDismiss?: () => void;
   className?: string;
 }
