@@ -1,6 +1,6 @@
 import { useId } from "react";
 import type { InputHTMLAttributes } from "react";
-import FormField from "./formField.tsx";
+import FormField from "./FormField";
 
 // Omit "id": the component generates its own, so a caller can't
 // desynchronise the label/error wiring by passing one.
