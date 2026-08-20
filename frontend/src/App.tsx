@@ -32,7 +32,7 @@ export default function App() {
       {/* Full-width bar at the very top; renders only when offline. */}
       <OfflineBanner />
 
-      <div style={{ fontFamily: "system-ui, sans serif", maxWidth: "600px", margin: "0 auto", padding: "2rem", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: "600px", margin: "0 auto", padding: "2rem", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
         {/* Simple nav. <Link> changes the URL without a full page reload. */}
         <nav style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap", alignItems: "center" }}>
           <Link to="/">Home</Link>
