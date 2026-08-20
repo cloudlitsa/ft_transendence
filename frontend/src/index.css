@@ -1,0 +1,37 @@
+@import "tailwindcss";
+
+@theme {
+  /* ---- Brand: calm, used for primary actions and focus ---- */
+  --color-brand-50:  #f0f5ff;
+  --color-brand-100: #dbe6fe;
+  --color-brand-500: #4f6ef7;
+  --color-brand-600: #3b55d9;
+  --color-brand-700: #2f43ad;
+
+  /* ---- Alert: the check-in action. Amber, deliberately NOT red ---- */
+  --color-alert-50:  #fff8eb;
+  --color-alert-500: #f59e0b;
+  --color-alert-600: #d97706;
+  --color-alert-700: #b45309;
+
+  /* ---- Danger: destructive actions and errors only ---- */
+  --color-danger-50:  #fef2f2;
+  --color-danger-600: #dc2626;
+  --color-danger-700: #b91c1c;
+
+  /* ---- Success ---- */
+  --color-success-50:  #f0fdf4;
+  --color-success-600: #16a34a;
+  --color-success-700: #15803d;
+
+  /* ---- Neutrals: semantic, not numbered ---- */
+  --color-ink:            #111827;  /* primary text */
+  --color-ink-muted:      #4b5563;  /* secondary text */
+  --color-surface:        #ffffff;  /* card / page background */
+  --color-surface-sunken: #f9fafb;  /* recessed areas, hover on light */
+  --color-line:           #d1d5db;  /* borders and dividers */
+
+  /* ---- Typography ---- */
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+               Roboto, "Helvetica Neue", Arial, sans-serif;
+}

@@ -93,7 +93,7 @@ export default function TermsPage() {
       <section style={{ marginBottom: "2rem" }}>
         <h2>6. Account Termination and Right to Erasure</h2>
         <p>
-          You may stop using Check-in at any time. Under our GDPR compliance framework, you have the absolute right to permanently delete your account and all associated records (friendships, alerts, acknowledgements, and messages) via the account settings.
+          You may stop using Check-in at any time. Under our GDPR compliance framework, you have the absolute right to permanently delete your account and all associated records (friendships, alerts, acknowledgements, and messages).
         </p>
       </section>
 

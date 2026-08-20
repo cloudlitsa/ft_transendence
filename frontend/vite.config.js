@@ -1,6 +1,7 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   plugins: [
@@ -10,6 +11,7 @@ export default defineConfig({
     // It generates two things at build time: a service worker (the background
     // helper that caches our files so the app loads offline) and a web app
     // manifest (the "ID card" that lets the browser offer "Install app").
+    tailwindcss(),
     VitePWA({
       // "autoUpdate": when we deploy a new version, the service worker updates
       // itself silently in the background. Simpler than prompting the user;

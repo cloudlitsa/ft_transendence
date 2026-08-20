@@ -25,7 +25,7 @@ yarn-error.log*
 # OS / editor junk
 .DS_Store
 # Windows equivalent of .DS_Store
-.vscode/
+
 .idea/
 Thumbs.db
 
@@ -37,5 +37,5 @@ coverage/
 # SSL certificates - mkcert generates them in the certs/ folder, which is not needed in the repo
 certs/
 
-#my own notes
-/notes/
+# my personal notes, which are not needed in the repo
+notes/

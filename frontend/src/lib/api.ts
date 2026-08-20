@@ -14,7 +14,13 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   };
-  if (options.body && !headers["Content-Type"]) {
+  // Don't set a JSON content-type for FormData — the browser must set its own
+  // multipart boundary header for file uploads.
+  if (
+    options.body &&
+    !(options.body instanceof FormData) &&
+    !headers["Content-Type"]
+  ) {
     headers["Content-Type"] = "application/json";
   }
 
@@ -55,5 +61,19 @@ export const api = {
 
   // 'delete' is a reserved-ish word people avoid as a bare identifier;
   // as an object property it's fine.
-  delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
+  
+  delete: <T>(path: string, data?: unknown) =>
+    request<T>(path, {
+      method: "DELETE",
+      body: data ? JSON.stringify(data) : undefined,
+    }),  
+  patch: <T>(path: string, data?: unknown) =>
+    request<T>(path, {
+      method: "PATCH",
+      body: data ? JSON.stringify(data) : undefined,
+    }),
+
+  // For file uploads: pass a FormData; the browser sets the multipart header.
+  upload: <T>(path: string, formData: FormData) =>
+    request<T>(path, { method: "POST", body: formData }),
 };

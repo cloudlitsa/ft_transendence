@@ -159,6 +159,93 @@ end up with duplicate rows describing the same relationship.
 
 `requestedBy` is stored separately, so "who asked" survives the ordering.
 
+### Injection and XSS: why the defence is structural
+
+Two classic web attacks involve a user typing something that stops being
+*data* and starts being *instructions*. Neither is possible here, and in both
+cases that comes from how the tools work rather than from anything clever we
+wrote.
+
+#### SQL injection
+
+Prisma never builds queries by joining strings. The
+instruction (`WHERE email = $1`) and the value are sent to the database
+separately. The database works out what the query means before the user's
+text arrives, so by then the shape of the query is fixed and the text can
+only be a value. If someone types SQL into the email box, the database
+simply looks for a user whose email address is that exact text, and doesn't
+find one.
+
+**The one exception to know about.** Prisma has `$queryRawUnsafe` and
+`$executeRawUnsafe`, which *do* glue strings together and would reintroduce
+the risk. We don't use them.
+
+We do use raw SQL in two places, both safe:
+
+- `backend/src/server.ts` — the health check runs `SELECT NOW() as time`,
+  a fixed string with no user input.
+- The migration adding the partial unique index on active alerts — a fixed
+  migration, run once, with no user input.
+
+Both use the backtick form, `` $queryRaw`...` ``, which is a tagged template.
+Even if a value were interpolated into it, Prisma extracts that value and
+sends it as a bound parameter rather than pasting it into the SQL text. The
+string-concatenating behaviour only exists in the `Unsafe` variants.
+
+#### Cross-site scripting (XSS)
+
+**The attack.** Someone sets their display name to:
+
+```
+<script>alert(1)</script>
+```
+
+If the app drops that text into the page as HTML, then when a *different* user
+opens their friends list, their browser sees a real `<script>` tag and runs it.
+`alert(1)` just shows a popup, which is why it's the standard harmless test.
+A real attack would read the victim's session or act as them.
+
+This matters for us specifically: display names and check-in notes are written
+by one user and shown on another user's screen. That is exactly the situation
+XSS needs.
+
+**Why it can't happen here.** When React renders `{user.displayName}`, it sets
+that value as **text**, not as HTML. The browser method React uses for text
+does not parse tags at all — a `<` character stays a `<` character on screen.
+So a display name containing `<script>` shows up as the literal, visible
+characters `<script>alert(1)</script>`, which looks silly but is completely
+inert.
+
+Again, nothing is being stripped or filtered. The text simply never reaches
+the part of the browser that turns tags into elements.
+
+**The one exception to know about.** React has an escape hatch called
+`dangerouslySetInnerHTML`, which does insert raw HTML. It is deliberately given
+an alarming name. We don't use it.
+
+#### What we still validate, and why
+
+Since neither attack is possible, validation is doing a different job:
+
+- **Backend (Zod)** — rejects data that would be *wrong* rather than
+  dangerous: malformed emails, passwords under 8 characters, missing fields,
+  absurdly long strings. This is the security boundary, because anyone can
+  bypass the browser and post directly to the API with curl.
+- **Frontend** — mirrors the same rules purely so the user gets an instant,
+  helpful error instead of a round trip. It is a convenience, not a
+  protection, and we assume it can be skipped entirely.
+
+#### How to demonstrate this at evaluation
+
+1. Sign up with the display name `<script>alert(1)</script>`
+2. Add that account as a friend from a second account
+3. Open the friends list — the name appears as visible text, no popup
+4. Try `' OR 1=1--` in the login email field — a normal "invalid credentials"
+   response, no 500, no login
+
+A 500 error on either would be the warning sign: it would mean the input
+reached somewhere it should never have got to.
+
 ---
 
 ## Stack choices
@@ -247,3 +334,14 @@ tree into the project and reports more findings than it fixes.
 Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
+
+## Avatar Storage: Files on Disk, Not in the Database
+
+We store uploaded avatars in a folder on disk (`/app/uploads` in the backend container
+with a named Docker volume) and serve them as static files using `@fastify/static`. The
+`users.avatar_url` column only contains the URL path, not the actual image data.
+
+**Why Not Store Bytes in PostgreSQL?**  Storing images in the database makes it larger, slows down avatar loading because it requires extra database calls, and increases backup sizes. Keeping files on disk allows the database to stay small and supports efficient file serving.
+
+**Validation and Safety:**  We validate every upload **server-side**: only jpeg, png, and webp files are accepted, and size is capped at 2 MB via `@fastify/multipart`. We generate
+random filenames for stored files (the client's filename is never trusted) and delete the old file when an avatar is replaced. If `avatar_url` is empty, a default avatar is shown.

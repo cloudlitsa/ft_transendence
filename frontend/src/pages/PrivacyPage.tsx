@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <p>We only collect data strictly necessary to operate the service:</p>
         <ul>
           <li>
-            <strong>Account Data:</strong> Your email address, display name, avatar image URL (if provided), and an encrypted password hash. We <em>never</em> store your plaintext password.
+            <strong>Account Data:</strong> Your email address, display name, avatar image URL (if provided), and a salted password hash. We <em>never</em> store your plaintext password.
           </li>
           <li>
             <strong>Relationship Data:</strong> Confirmed friendships and pending friend invitations, including timestamps and who initiated the request.
@@ -53,7 +53,7 @@ export default function PrivacyPage() {
       </section>
 
       <section style={{ marginBottom: "2rem" }}>
-        <h2>4. Cookies & Local Storage</h2>
+        <h2>4. Cookies</h2>
         <p>
           We use only <strong>strictly necessary session cookies</strong>:
         </p>
@@ -91,17 +91,14 @@ export default function PrivacyPage() {
       <section style={{ marginBottom: "2rem" }}>
         <h2>6. Your Rights Under GDPR</h2>
         <p>
-          You have full control over your personal information, enforceable directly through the application:
+          You have full control over your personal information under the General Data Protection Regulation:
         </p>
         <ul>
           <li>
-            <strong>Right of Access & Data Portability (Article 15 & 20):</strong> You can request and download a complete, machine-readable JSON copy of all data stored across our database (account profile, friendships, alerts, acknowledgements, and messages) via <code>GET /api/account/export</code>.
+            <strong>Right of Access & Data Portability (Article 15 & 20):</strong> You have the right to obtain and download a complete, machine-readable JSON copy of all data stored in relation to your account (account profile, friendships, alerts, acknowledgements, and messages).
           </li>
           <li>
-            <strong>Right to Erasure / "Right to be Forgotten" (Article 17):</strong> You can permanently delete your account and all associated data at any time via <code>DELETE /api/account</code> (requires password confirmation). A cascading delete immediately wipes your user record, friendships, alerts, acknowledgements, and messages.
-          </li>
-          <li>
-            <strong>Notification Emails:</strong> Automated confirmation emails are sent upon data export or account erasure to verify the action.
+            <strong>Right to Erasure / "Right to be Forgotten" (Article 17):</strong> You have the right to permanently delete your account and all associated data. When an account is deleted, a cascading deletion immediately and permanently removes your user record, friendships, alerts, acknowledgements, and messages from our database.
           </li>
         </ul>
       </section>

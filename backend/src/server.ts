@@ -6,11 +6,24 @@ import { friendsRoutes } from "./routes/friends.js";
 import { alertsRoutes } from "./routes/alerts.js";
 import { gdprRoutes } from "./routes/gdpr.js";
 import { wsRoutes } from "./routes/ws.js";
+import { profileRoutes } from "./routes/profile.js";
+import multipart from "@fastify/multipart";
+import fastifyStatic from "@fastify/static";
 
 const fastify = Fastify({ logger: true });
 
 // Cookie support — needed to set/read the httpOnly auth cookie.
 await fastify.register(cookie);
+
+const UPLOAD_DIR = "/app/uploads";
+//multipart lets Fastify parse file uploads (handle binary).
+await fastify.register(multipart, {
+  limits: { fileSize: 2 * 1024 * 1024, files: 1 },
+});
+await fastify.register(fastifyStatic, {
+  root: UPLOAD_DIR,
+  prefix: "/api/uploads/",
+});
 
 // Auth endpoints live under /api/auth/*
 await fastify.register(authRoutes, { prefix: "/api/auth" });
@@ -23,6 +36,8 @@ await fastify.register(alertsRoutes, { prefix: "/api/alerts" });
 await fastify.register(gdprRoutes, { prefix: "/api/account" });
 
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
+
+await fastify.register(profileRoutes, { prefix: "/api/profile"});
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {

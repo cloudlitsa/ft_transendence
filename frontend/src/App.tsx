@@ -3,10 +3,13 @@ import HomePage from "./pages/HomePage.tsx";
 import LoginPage from "./pages/LoginPage.tsx";
 import SignupPage from "./pages/SignupPage.tsx";
 import FriendsPage from "./pages/FriendsPage.tsx";
+import ProfilePage from "./pages/ProfilePage.tsx";
+import UserProfilePage from "./pages/UserProfilePage.tsx";
 import AlertsPage from "./pages/AlertsPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
 import Footer from "./components/Footer.tsx";
+
 import OfflineBanner from "./components/OfflineBanner.tsx";
 import { useAlertSocket } from "./lib/useAlertSocket.ts";
 import { useAuth } from "./lib/AuthContext.tsx";
@@ -35,6 +38,7 @@ export default function App() {
           <Link to="/">Home</Link>
           {loading ? null : user ? (
             <>
+              <Link to="/profile">Profile</Link>
               <Link to="/friends">Friends</Link>
               <Link to="/alerts">Check-ins</Link>
               <button onClick={handleLogout}>Log out</button>
@@ -53,6 +57,8 @@ export default function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/signup" element={<SignupPage />} />
             <Route path="/friends" element={<RequireAuth><FriendsPage /></RequireAuth>} />
+            <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
+            <Route path="/profile/:id" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
             <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
