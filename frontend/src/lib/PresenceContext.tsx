@@ -21,11 +21,7 @@ export function PresenceProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   const seed = useCallback((ids: string[]) => {
-    setOnlineIds((prev) => {
-      const next = new Set(prev);
-      ids.forEach((id) => next.add(id));
-      return next;
-    });
+    setOnlineIds(new Set(ids));
   }, []);
     return (
     <PresenceContext.Provider value={{ onlineIds, setPresence, seed }}>
