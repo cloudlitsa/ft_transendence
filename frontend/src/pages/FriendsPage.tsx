@@ -12,6 +12,7 @@ interface FriendUser { // the user on the other side of a friendship. the backen
   displayName: string;
   email: string;
   avatarUrl: string | null;
+  online?: boolean; // only present on accepted friends (/friends), not pending
 }
 
 interface FriendEntry { // a single friendship row, either accepted or pending. the backend sends this shape in both /friends and /friends/pending.
@@ -177,6 +178,16 @@ export default function FriendsPage() { // the main component for the /friends p
                 width={32}
                 height={32}
                 style={{ borderRadius: "50%", objectFit: "cover" }}
+              />
+              <span
+                title={entry.user.online ? "Online" : "Offline"}
+                style={{
+                  display: "inline-block",
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: entry.user.online ? "#16a34a" : "#9ca3af",
+                }}
               />
               <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
               ({entry.user.email}){" "}

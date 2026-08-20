@@ -6,7 +6,7 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
-
+import { isOnline } from "../lib/wsRegistry.js";
 // ---------- Validation ----------
 const requestSchema = z.object({
   email: z.string().email("Invalid email address").max(254),
@@ -109,10 +109,14 @@ export async function friendsRoutes(fastify: FastifyInstance) {
     });
 
     // For each row, pick whichever side ISN'T me — that's the friend.
-    const friends = rows.map((row) => ({
-      friendshipId: row.id,
-      user: row.userIdA === me ? row.userB : row.userA,
-    }));
+    // online computed at request time from who's currently connected from the WebSocket registry, not stored
+    const friends = rows.map((row) => {
+      const friend = row.userIdA === me ? row.userB : row.userA;
+      return {
+        friendshipId: row.id,
+        user: { ...friend, online: isOnline(friend.id) },
+      };
+    });
 
     return reply.send({ friends });
   });
