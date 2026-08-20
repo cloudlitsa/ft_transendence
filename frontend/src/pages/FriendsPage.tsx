@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react"; // React hooks let 
 import { api } from "../lib/api";
 import { useToast } from "../components/ToastProvider.tsx"; // fire notifications on create/update/delete actions
 import { Link } from "react-router-dom";
-
+import { usePresence } from "../lib/PresenceContext.tsx";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
@@ -34,6 +34,7 @@ export default function FriendsPage() { // the main component for the /friends p
   const [loading, setLoading] = useState(true); // true while we're waiting for the backend to respond. we show a "Loading…" message in this case.
 
   const toast = useToast(); // used to fire success/error/info notifications on actions
+  const { onlineIds, seed } = usePresence();
 
   // ---------- Load everything from the backend ----------
   async function refresh() { // fetch friends and pending requests from the backend and update state. called once on page load, and after every action that changes the data. Async because it uses await to wait for the backend responses. We don't return anything; we just update state.
@@ -44,6 +45,7 @@ export default function FriendsPage() { // the main component for the /friends p
         api.get<PendingResponse>("/friends/pending"), // the backend sends { incoming: [...], outgoing: [...] } from /friends/pending
       ]);
       setFriends(friendsRes.friends); // update state with the new data. React re-renders the page with the new values. friendsRes.friends is the array of accepted friends from the backend. pendingRes.incoming and pendingRes.outgoing are the arrays of incoming and outgoing pending requests.
+      seed(friendsRes.friends.filter((f) => f.user.online).map((f) => f.user.id));
       setIncoming(pendingRes.incoming);
       setOutgoing(pendingRes.outgoing);
     } catch (err) { // if either request fails, we catch the error here. err is the Error object thrown by api.get, which includes the backend's error message.
@@ -180,13 +182,13 @@ export default function FriendsPage() { // the main component for the /friends p
                 style={{ borderRadius: "50%", objectFit: "cover" }}
               />
               <span
-                title={entry.user.online ? "Online" : "Offline"}
+                title={onlineIds.has(entry.user.id) ? "Online" : "Offline"}
                 style={{
                   display: "inline-block",
                   width: 8,
                   height: 8,
                   borderRadius: "50%",
-                  background: entry.user.online ? "#16a34a" : "#9ca3af",
+                  background: onlineIds.has(entry.user.id) ? "#16a34a" : "#9ca3af",
                 }}
               />
               <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
