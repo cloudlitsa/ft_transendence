@@ -182,6 +182,7 @@ export default function FriendsPage() { // the main component for the /friends p
                 style={{ borderRadius: "50%", objectFit: "cover" }}
               />
               <span
+                aria-hidden="true"
                 title={onlineIds.has(entry.user.id) ? "Online" : "Offline"}
                 style={{
                   display: "inline-block",
@@ -191,6 +192,11 @@ export default function FriendsPage() { // the main component for the /friends p
                   background: onlineIds.has(entry.user.id) ? "#16a34a" : "#9ca3af",
                 }}
               />
+              <span role="status" className="sr-only">
+                {onlineIds.has(entry.user.id)
+                  ? `${entry.user.displayName} is online`
+                  : `${entry.user.displayName} is offline`}
+              </span>
               <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
               ({entry.user.email}){" "}
               <button onClick={() => unfriend(entry.friendshipId)}>Unfriend</button>
