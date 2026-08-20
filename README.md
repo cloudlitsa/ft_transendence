@@ -118,17 +118,17 @@ To stop: `docker compose down`
   then `docker compose restart frontend`
 
   A rebuild alone won't pick either of these up. `node_modules` is mounted as a
-  volume that shadows the host directory, so git can't touch it and
-  `--no-cache` doesn't refresh it. The restart matters separately: config files
-  like `vite.config.js` are read once at startup.
+  volume that shadows the host directory, so git can't touch it and even
+  `docker compose build --no-cache` doesn't refresh it. The restart matters
+  separately: config files like `vite.config.js` are read once at startup.
 
 - **New migration** → `docker compose exec backend npx prisma migrate deploy`
 
-  Use `deploy`, not `dev`, to apply migrations someone else wrote. `deploy`
-  only applies pending migrations and never resets. `migrate dev` is for
-  *creating* a migration after you've changed `schema.prisma`, and if it
-  detects drift it will offer to reset the database. Check first with
-  `docker compose exec backend npx prisma migrate status` — that's read-only.
+  Use `deploy` to apply migrations already in the repo (for example after pulling a
+  branch). It only applies pending migrations and never resets. `migrate dev` is
+  for *creating* a migration after you've changed `schema.prisma` (and can also be
+  used on a fresh local database), but if it detects drift it will offer to reset.
+  Check first with `docker compose exec backend npx prisma migrate status` — that's read-only.
 
 - **Editor showing phantom type errors** → `cd frontend && npm install` (and/or
   `cd backend && npm install`). The container and your host have separate
