@@ -124,11 +124,11 @@ To stop: `docker compose down`
 
 - **New migration** → `docker compose exec backend npx prisma migrate deploy`
 
-  Use `deploy`, not `dev`, to apply migrations someone else wrote. `deploy`
-  only applies pending migrations and never resets. `migrate dev` is for
-  *creating* a migration after you've changed `schema.prisma`, and if it
-  detects drift it will offer to reset the database. Check first with
-  `docker compose exec backend npx prisma migrate status` — that's read-only.
+  Use `deploy` to apply migrations already in the repo (for example after pulling a
+  branch). It only applies pending migrations and never resets. `migrate dev` is
+  for *creating* a migration after you've changed `schema.prisma` (and can also be
+  used on a fresh local database), but if it detects drift it will offer to reset.
+  Check first with `docker compose exec backend npx prisma migrate status` — that's read-only.
 
 - **Editor showing phantom type errors** → `cd frontend && npm install` (and/or
   `cd backend && npm install`). The container and your host have separate
