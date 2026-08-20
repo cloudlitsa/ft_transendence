@@ -3,9 +3,11 @@
 // upgrade completes — so an unauthenticated client never gets a socket.
 import type { FastifyInstance } from "fastify";
 import websocket from "@fastify/websocket";
-import { addClient, removeClient } from "../lib/wsRegistry.js";
+import { addClient, removeClient, broadcastToUsers } from "../lib/wsRegistry.js";
 import { AUTH_COOKIE, verifyToken } from "../lib/auth.js";
 import { prisma } from "../prisma.js";
+import { getFriendIds } from "../lib/friendships.js";
+
 
 const HEARTBEAT_MS = 30_000;
 
@@ -55,7 +57,12 @@ export async function wsRoutes(fastify: FastifyInstance) {
       // By the time we're here, preValidation passed: userId is set.
       const userId = request.userId as string;
 
-      addClient(userId, socket);
+      const wasOffline = addClient(userId, socket);
+      if (wasOffline) {
+        getFriendIds(userId)
+          .then((ids) => broadcastToUsers(ids, { type: "presence", userId, online: true }))
+          .catch((err) => request.log.error({ err }, "presence broadcast failed"));
+      }
       request.log.info({ userId }, "ws connected");
       // ---- Heartbeat: detecting dead connections ----
       // TCP doesn't tell you when the other end vanishes (laptop lid closed,
@@ -77,8 +84,13 @@ export async function wsRoutes(fastify: FastifyInstance) {
 
       // ---- Graceful disconnection (subject requirement, verbatim) ----
       socket.on("close", () => {
-        clearInterval(heartbeat);       // never leak the timer
-        removeClient(userId, socket);
+        clearInterval(heartbeat);
+        const nowOffline = removeClient(userId, socket);
+        if (nowOffline) {
+          getFriendIds(userId)
+            .then((ids) => broadcastToUsers(ids, { type: "presence", userId, online: false }))
+            .catch((err) => request.log.error({ err }, "presence broadcast failed"));
+        }
         request.log.info({ userId }, "ws disconnected");
       });
       

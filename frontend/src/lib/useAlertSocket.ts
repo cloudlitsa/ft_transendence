@@ -10,6 +10,8 @@ import { useEffect, useRef } from "react";
 import { useToast } from "../components/ToastProvider.tsx";
 import { useAuth } from "./AuthContext.tsx";
 import { useAlerts } from "./AlertsContext.tsx";
+import { usePresence } from "./PresenceContext.tsx";
+
 // Shape of what the server sends. Kept narrow on purpose: if the backend
 // starts sending a new message type, TypeScript won't pretend to know about
 // it and the switch below will fall through harmlessly.
@@ -30,8 +32,8 @@ type IncomingAlert = {
 
 type ServerMessage =
   | { type: "connected" }
-  | { type: "alert:new"; alert: IncomingAlert };
-
+  | { type: "alert:new"; alert: IncomingAlert }
+  | { type: "presence"; userId: string; online: boolean };
 // The alertType enum values are database identifiers, not English. Map them
 // once here rather than scattering the wording through components.
 const ALERT_WORDING: Record<IncomingAlert["alertType"], string> = {
@@ -51,6 +53,7 @@ const MAX_ATTEMPTS = 8;
 export function useAlertSocket() {
   const { user } = useAuth();
   const { setFriendsAlerts } = useAlerts();
+  const { setPresence } = usePresence();
   const toast = useToast();
 
   // The effect must not depend on `toast`: ToastProvider hands out a new
@@ -124,6 +127,9 @@ export function useAlertSocket() {
             });
             break;
           }
+          case "presence":
+            setPresence(message.userId, message.online);
+            break;
         }
       };
 

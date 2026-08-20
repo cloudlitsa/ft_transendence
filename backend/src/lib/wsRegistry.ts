@@ -9,23 +9,26 @@ import { WebSocket } from "ws";
 // and duplicates are impossible by definition.
 const clients = new Map<string, Set<WebSocket>>();
 
-export function addClient(userId: string, socket: WebSocket) {
+export function addClient(userId: string, socket: WebSocket): boolean {
   let set = clients.get(userId);
+  const wasOffline = !set;              // no set yet = user was fully offline
   if (!set) {
     set = new Set();
     clients.set(userId, set);
   }
   set.add(socket);
+  return wasOffline;                    // true only on the user's FIRST socket
 }
 
-export function removeClient(userId: string, socket: WebSocket) {
+export function removeClient(userId: string, socket: WebSocket): boolean {
   const set = clients.get(userId);
-  if (!set) return;
+  if (!set) return false;
   set.delete(socket);
-  // Remove the empty Set so the Map only ever contains online users.
-  // This is what makes presence (TRAN-27) trivial later: online means
-  // "has an entry in this Map" — no extra bookkeeping.
-  if (set.size === 0) clients.delete(userId);
+  if (set.size === 0) {
+    clients.delete(userId);
+    return true;                        // true only on the user's LAST socket
+  }
+  return false;
 }
 
 export function isOnline(userId: string): boolean {

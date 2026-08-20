@@ -7,6 +7,8 @@ import { ToastProvider } from "./components/ToastProvider.tsx";
 import { AuthProvider } from "./lib/AuthContext.tsx";
 
 import { AlertsProvider } from "./lib/AlertsContext.tsx";
+import { PresenceProvider } from "./lib/PresenceContext.tsx";
+
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -14,9 +16,11 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
     <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
       <AuthProvider>
         <ToastProvider>
-          <AlertsProvider>
-            <App />
-          </AlertsProvider>
+          <PresenceProvider>
+            <AlertsProvider>
+              <App />
+            </AlertsProvider>
+          </PresenceProvider>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

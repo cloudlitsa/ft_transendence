@@ -229,17 +229,40 @@ network, which the subject permits.
 
 The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Completed: 8 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) ·
-ORM (Minor, 1) · PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
+**Completed: 10 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) · Standard User Management (Major, 2) · ORM (Minor, 1) ·
+PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
 
-**In progress: 6 pts** — Standard User Management (Major, 2) ·
-User Interaction (Major, 2) · OAuth (Minor, 1) · Custom design system (Minor, 1)
+
+
+**In progress: 4 pts** — 
+User Interaction (Major, 2) ·OAuth (Minor, 1) · Custom design system (Minor, 1)
 
 > **Keep this tally current.** It is the first thing an evaluator reads to know
 > what the project claims. A module counts as complete only when it is merged
 > to `main`, verified end to end, and documented in a section below. Move
 > entries between the two lists as they land — an out-of-date tally either
 > undersells finished work or claims work that isn't there.
+
+### Standard User Management — User Management · Major · 2 pts
+
+**What it is.** Four things a user needs to manage their identity in the app: a profile page that displays their information, the ability to update that information, avatar upload and management, and a friends system that lets users add others and see their online status.
+
+**How it's implemented.**
+- **Profile page** (`frontend/src/pages/ProfilePage.tsx`, route `/profile`, guarded by `RequireAuth`) shows the user's avatar, display name and email, and lets them edit their display name and manage their avatar. A read-only view of *other* users (`UserProfilePage.tsx`, route `/profile/:id`) satisfies the "view user information" leg shared with the User Interaction module; friend names on the friends page link to it.
+- **Profile update** — `PATCH /api/profile` (`backend/src/routes/profile.ts`, guarded by `requireAuth`) updates the display name, validated with Zod using the same rules as signup.
+- **Avatar upload** — `POST /api/profile/avatar` accepts JPEG/PNG/WebP up to 2 MB, **validated server-side** (`@fastify/multipart` MIME allowlist + size limit). Files are stored under a randomly generated filename (the client's filename is never trusted) in a Docker volume at `/app/uploads`, and served via `@fastify/static` under `/api/uploads/`. `DELETE /api/profile/avatar` removes it; the old file is unlinked on replace or delete. A **default avatar** is shown whenever none is set. Storage rationale is recorded in `docs/DECISIONS.md`.
+- **Online status** — `GET /api/friends` returns a live `online` flag per friend, computed from the WebSocket registry (`isOnline()`), so the friends page shows a green/grey dot on load. Presence then updates **in real time**: when a user's first socket connects or last socket disconnects, the backend broadcasts a `presence` event to their friends (`ws.ts` + `broadcastToUsers`, multi-tab safe via transition booleans in `wsRegistry.ts`). On the client, a `PresenceProvider` tracks online user ids — seeded from the friends snapshot, updated from presence messages — so the dot flips without a refresh.
+- The **friends system** (send/accept/decline/unfriend, `backend/src/routes/friends.ts` + `FriendsPage.tsx`) is the fourth pillar of the module.
+
+**How to verify.**
+1. Log in → **Profile**: edit the display name → saved (green toast); upload an image → local preview, then the avatar updates everywhere; remove it → falls back to the default.
+2. Type/size validation: a non-image → rejected (415); a file over 2 MB → rejected (413), both server-side.
+3. From the friends page, click a friend's name → their read-only profile (name, avatar, status).
+4. **Online status (two browsers):** friend online → green dot; close their tab → flips grey within a second, no refresh; reopen → flips green; a friend with two tabs stays green until the last one closes.
+
+**Scope note.** Online status is friends-only (pending requests show no dot), which matches the subject. The profile page also hosts the GDPR export/delete buttons (that module's frontend) since it's the natural account hub.
+
+**Contributor.** mosokina, evmouka
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -275,7 +298,7 @@ alerts feature and backend push infrastructure, and are **not required** for
 this module's point (which covers installability + offline). They are product
 polish, tracked separately.
 
-**Contributor.** maria.v.osokina
+**Contributor.** mosokina
 
 ### GDPR Compliance — Data and Analytics · Minor · 1 pt
 
@@ -327,7 +350,7 @@ real inboxes in production is an env-var swap. The `sendMail` helper is generic
 (no GDPR-specific logic), so other modules can reuse it. The frontend
 "Download my data" button and "Delete account" dialog are a follow-up.
 
-**Contributor.** maria.v.osokina
+**Contributor.** mosokina
 
 ### Notification system — Web · Minor · 1 pt
 
@@ -360,7 +383,7 @@ system is app-wide, so new features plug in via `useToast()` as they land. A
 real-time notification centre (bell) is out of scope — it needs WebSockets and
 is not required for this module.
 
-**Contributor.** maria.v.osokina
+**Contributor.** mosokina
 
 ### Real-time WebSockets — Web · Major · 2 pts
 
