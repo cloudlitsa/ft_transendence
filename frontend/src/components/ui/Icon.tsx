@@ -87,6 +87,13 @@ const icons = {
       <path d="M21 21l-4.35-4.35" />
     </>
   ),
+    info: (
+    <>
+        <circle cx="12" cy="12" r="10" />
+        <path d="M12 16v-4" />
+        <path d="M12 8h.01" />
+    </>
+  ),
 } satisfies Record<string, ReactNode>;
 
 /** Derived from the registry — adding a glyph above extends this automatically. */
