@@ -27,15 +27,18 @@ alerts backend. See `docs/PROJECT.md` for the full plan.
 - Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
 - Alerts backend: send, view, acknowledge, close
 - In-app toast notifications, installable PWA with offline support
+- **Real-time alert delivery over WebSockets**, verified end to end through the
+  reverse proxy
+- Custom design system: design tokens (palette + typography) and reusable
+  components, built on Tailwind CSS v4
 
 **In review:**
-- Real-time alert delivery over WebSockets
 - Alerts UI (send / acknowledge / close check-ins)
 
 **Next:**
 - Chat
 - Profile page, avatar upload, online status
-- CSS framework and responsive pass
+- Remaining design system components and icons; responsive pass across all pages
 
 ## Running it
 
@@ -90,18 +93,89 @@ alerts backend. See `docs/PROJECT.md` for the full plan.
    Plain HTTP is redirected to HTTPS. No container other than the proxy publishes
    a port, so there is no unencrypted route into the app.
 
+7. *(Optional, for editor support)* Install dependencies on the host too:
+   ```
+   cd frontend && npm install && cd ../backend && npm install && cd ..
+   ```
+   The containers have their own `node_modules`, so the app runs fine without
+   this. But your editor's TypeScript server runs on the *host*, and without
+   local packages it reports dozens of phantom errors ("Cannot find module
+   'react'"). Nothing is broken — the editor just can't see the dependencies.
+
 To stop: `docker compose down`
-To stop and wipe the database: `docker compose down -v`
+
+> **⚠️ `docker compose down -v` destroys the database.** The `-v` flag removes
+> named volumes, and `db_data` is one of them — every user, friendship, alert
+> and message is deleted, with no undo. Use plain `docker compose down` to stop.
+> Only use `-v` when you deliberately want a blank database. To reset a single
+> service's dependencies instead, see *Troubleshooting* below.
 
 ### After pulling someone else's branch
 
-- **New backend dependency** → `docker compose exec backend npm install`
-  (a rebuild alone won't pick it up — `node_modules` is a named volume)
-- **New migration** → `docker compose exec backend npx prisma migrate dev`
-- **Editor showing phantom type errors** → `cd backend && npm install`
-  (the container and your host have separate `node_modules`)
+- **New backend dependency** → `docker compose exec backend npm install`,
+  then `docker compose restart backend`
+- **New frontend dependency** → `docker compose exec frontend npm install`,
+  then `docker compose restart frontend`
+
+  A rebuild alone won't pick either of these up. `node_modules` is mounted as a
+  volume that shadows the host directory, so git can't touch it and
+  `--no-cache` doesn't refresh it. The restart matters separately: config files
+  like `vite.config.js` are read once at startup.
+
+- **New migration** → `docker compose exec backend npx prisma migrate deploy`
+
+  Use `deploy`, not `dev`, to apply migrations someone else wrote. `deploy`
+  only applies pending migrations and never resets. `migrate dev` is for
+  *creating* a migration after you've changed `schema.prisma`, and if it
+  detects drift it will offer to reset the database. Check first with
+  `docker compose exec backend npx prisma migrate status` — that's read-only.
+
+- **Editor showing phantom type errors** → `cd frontend && npm install` (and/or
+  `cd backend && npm install`). The container and your host have separate
+  `node_modules`. Also try **TypeScript: Restart TS Server** from the command
+  palette — the language server caches file paths and can report errors you've
+  already fixed.
+
 - **First time on this branch** → generate certificates (step 3 above); Caddy
   won't start without them
+
+### Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Could not resolve '<package>'` | Stale `node_modules` volume | `docker compose exec <service> npm install`, then `restart` |
+| Service stuck `Restarting` | Crash loop | `docker compose logs --tail=50 <service>` |
+| Page renders but the build is broken | Browser is serving cached assets | Check log **timestamps**; hard-reload (Cmd+Shift+R) |
+| Config change had no effect | Config read once at startup | `docker compose restart <service>` |
+| Type error only in the production build | The Vite dev server does not type-check | `docker compose exec frontend npx tsc --noEmit` |
+| Caddy won't start | Missing or misnamed certificates | Re-run step 3; check the paths in `Caddyfile` |
+| `container name "/checkin_x" is already in use` | Another copy of this project is running | `docker compose down` in the other copy first — see note below |
+| Emails not arriving | Dev mail goes to Mailhog | Open `localhost:8025`, not a real inbox |
+
+**Only one copy of this project can run at a time.** Container names are fixed
+in `docker-compose.yml` (`checkin_proxy`, `checkin_db`, and so on), and Docker
+requires those to be unique across the whole machine — not just within a
+project. So a second clone will fail to start while the first is up.
+
+When stopping, run `docker compose down` from the directory the containers were
+*started* from: Compose works out which project you mean from the current
+directory, so running it elsewhere may not recognise them. `docker ps` is the
+only reliable way to see what is actually running.
+
+**Logs are cumulative.** An error scrolling past is not necessarily happening
+now. Always check the timestamp before debugging it:
+
+```
+docker compose logs --tail=100 --timestamps frontend
+```
+
+**Before committing frontend changes**, run the type check. The Vite dev server
+strips types without checking them, so a type error can sit invisible in the
+browser until the production build fails:
+
+```
+docker compose exec frontend npx tsc --noEmit
+```
 
 ## Tech stack
 
@@ -155,12 +229,17 @@ network, which the subject permits.
 
 The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Completed: 6 / 14** — Framework (Major, 2) · ORM (Minor, 1) ·
-PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
+**Completed: 8 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) ·
+ORM (Minor, 1) · PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
 
-**In progress: 8 pts** — Standard User Management (Major, 2) ·
-User Interaction (Major, 2) · Real-time WebSockets (Major, 2) ·
-OAuth (Minor, 1) · Custom design system (Minor, 1)
+**In progress: 6 pts** — Standard User Management (Major, 2) ·
+User Interaction (Major, 2) · OAuth (Minor, 1) · Custom design system (Minor, 1)
+
+> **Keep this tally current.** It is the first thing an evaluator reads to know
+> what the project claims. A module counts as complete only when it is merged
+> to `main`, verified end to end, and documented in a section below. Move
+> entries between the two lists as they land — an out-of-date tally either
+> undersells finished work or claims work that isn't there.
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -283,6 +362,157 @@ is not required for this module.
 
 **Contributor.** maria.v.osokina
 
+### Real-time WebSockets — Web · Major · 2 pts
+
+**What it is.** Alerts reach friends the moment they are sent, over a persistent
+WebSocket connection rather than polling. For a check-in app this is the core of
+the product: a check-in that arrives two minutes late has largely missed its
+purpose, and the sender needs to see that someone has picked it up.
+
+**How it's implemented.**
+
+- **Server** — `@fastify/websocket` registered in `backend/src/routes/ws.ts`,
+  exposing `/api/ws`. The connection is authenticated from the same httpOnly
+  JWT cookie used for HTTP requests, so there is no second auth mechanism and no
+  token in a query string (which would leak into logs and browser history).
+
+- **Connection registry** (`backend/src/lib/wsRegistry.ts`) — maps user id to
+  live sockets so the server can push to a specific user. A user may have
+  several sockets open (multiple tabs or devices), so the registry holds a set
+  per user rather than a single connection, and removes sockets on close.
+
+- **Events** — `alert:new` is pushed to the sender's friends when a check-in is
+  created; `alert:ack` is pushed **only to the original sender** when a friend
+  acknowledges. Acknowledgement is deliberately narrow: the sender needs to know
+  someone responded, but other friends do not need to be told who answered.
+
+- **Duplicate acknowledgements** return early via the unique-constraint path
+  (Prisma `P2002`) rather than inserting twice, so a double-click cannot produce
+  two acknowledgements or two socket events.
+
+- **Broadcasts are isolated from the database write.** The socket push sits in
+  its own `try/catch`, separate from the transaction. A socket failure must
+  never turn a successfully committed acknowledgement into a 500 — the data is
+  correct either way, and the client reconciles on next fetch. This was verified
+  by deliberately throwing inside the broadcast block and confirming the ack
+  still committed and still returned 200.
+
+- **Client** (`frontend/src/lib/`) — a socket hook feeds an `AlertsContext`, so
+  incoming events update React state immutably (`[newAlert, ...current]`, never
+  `push`) and every subscribed component re-renders. The provider is mounted in
+  `main.tsx` rather than `App.tsx`, because a component cannot consume a context
+  its own render provides.
+
+- **Effect dependencies use primitives, not objects** (`user?.id`, not `user`),
+  and the toast API is held in a `useRef`. Without both, the effect re-runs on
+  every render and tears down and rebuilds the socket continuously.
+
+- **Through the proxy** — the socket runs over `wss://` through Caddy, which
+  forwards `Upgrade` and `Connection` headers transparently. No extra proxy
+  configuration was needed, but this was verified explicitly rather than
+  assumed: the app is only reachable through the proxy, so a socket that works
+  directly against the backend but not through Caddy would be broken in
+  practice.
+
+**How to verify.**
+1. Log in as two friends in two different browsers (or a normal and a private
+   window — separate cookie jars are required).
+2. DevTools → Network → **WS** → confirm a `wss://localhost/api/ws` connection
+   with status 101 (Switching Protocols). The `wss` scheme confirms it is going
+   through the proxy, not around it.
+3. Send a check-in from user A → it appears in user B's list **without a page
+   reload**, and a toast fires.
+4. Acknowledge from user B → user A sees the acknowledgement appear live.
+   User C, also a friend, does **not** receive the `alert:ack` event.
+5. Click acknowledge twice quickly → only one acknowledgement is recorded.
+6. Stop the backend container while the page is open → the client handles the
+   dropped connection without crashing; restart it and confirm recovery.
+
+**Contributor.** evmouka
+
+### Custom design system — Web · Minor · 1 pt
+
+> **Status: in progress.** Tokens, typography and 4 of the required 10+
+> components are merged. Remaining components and icons are tracked as TRAN-60.
+
+**What it is.** A custom design system — a defined colour palette, typography,
+icons, and a library of reusable components — rather than styling each page ad
+hoc. For this app it matters because the interface must stay legible and
+predictable in the moment a user actually needs it, and because consistency is
+enforced structurally rather than by remembering to be consistent.
+
+**How it's implemented.**
+
+- **Design tokens** (`frontend/src/index.css`) — the palette and typography are
+  defined as Tailwind CSS v4 `@theme` custom properties. Each token generates
+  its whole utility family (`bg-`, `text-`, `border-`, `ring-`), so one
+  definition drives every use.
+
+- **The palette is semantic, not decorative.** `alert` (amber) is the check-in
+  action; `danger` (red) is reserved exclusively for destructive actions and
+  errors. The check-in deliberately avoids emergency-red because the app is
+  **not an emergency service** and the interface should not imply otherwise —
+  the same position the Terms of Service take. Neutrals are named for their
+  role (`ink`, `ink-muted`, `surface`, `surface-sunken`, `line`) rather than
+  numbered, so changing one variable restyles every border in the app.
+
+- **Typography** is declared as a `--font-sans` token using a system font
+  stack. A webfont would be a network request that fails offline, which works
+  against the PWA module; centralising it as a token means a self-hosted face
+  can be swapped in later by changing one line.
+
+- **Components** live in `frontend/src/components/ui/`, kept separate from
+  feature components (`OfflineBanner`, `ToastProvider`, `RequireAuth`).
+  Currently: `Button`, `Spinner`, `Input`, `FormField`.
+
+**Decisions worth noting.**
+
+- Components extend the native element's props (`ButtonHTMLAttributes`,
+  `InputHTMLAttributes`), so they accept everything the real element does
+  instead of re-declaring props one at a time.
+- Variants are a `Record<Variant, string>` lookup, never string interpolation.
+  Tailwind scans source text for complete class names, so `bg-${x}-600`
+  generates no CSS at all.
+- `Button` defaults to `type="button"`. HTML's default is `submit`, which
+  causes accidental form submissions; submitting is now explicit.
+- `focus-visible` rather than `focus`, so the keyboard focus ring never shows
+  on mouse clicks — the usual reason people delete focus styles and lose
+  keyboard accessibility with them.
+- `Input` generates its own `id` with `useId()` and derives the hint and error
+  ids from it, so `htmlFor` and `aria-describedby` are correct by construction.
+  It omits `id` from its props type so a caller cannot desynchronise that
+  wiring.
+- Field-level errors use `aria-describedby`; form-level errors use
+  `role="alert"`. Same rule at different scopes — a form-level error (like
+  "Invalid email or password", which deliberately does not say *which*, to
+  avoid account enumeration) cannot be attributed to a field, so it needs
+  `role="alert"` to be announced at all.
+- `className` on a component is **additive** (margins, layout), not an
+  override. Tailwind resolves conflicts by stylesheet order, not by the order
+  of names in the class attribute, so a passed `px-8` would not reliably beat a
+  variant's `px-4`. Anything that varies visually is a prop.
+
+**How to verify.**
+1. Inspect any button — its classes reference project tokens (`bg-brand-600`,
+   `text-ink`), not Tailwind defaults (`bg-blue-600`, `text-gray-900`).
+2. **Tab** to a button or field → focus ring appears. **Click** one with the
+   mouse → no ring. Keyboard-only focus styling.
+3. On `/login`, click the word "Email" → the cursor lands in the field
+   (explicit label association).
+4. Inspect the two inputs on `/login` → each has a distinct `useId()` value.
+5. A `<Button>` inside a `<form>` does not submit unless given `type="submit"`.
+6. A disabled or loading button is inert and visibly faded; the loading
+   spinner inherits the button's text colour (`currentColor`), so one Spinner
+   component works on every variant.
+
+**Scope note.** The module requires 10+ reusable components plus palette,
+typography and icons. Four components are merged; the remainder (including an
+`Icon` component holding the icon set) are tracked as TRAN-60. Icons are
+hand-built SVG rather than an installed library, since the module specifies a
+*custom-made* design system.
+
+**Contributor.** evmouka
+
 ## Project structure
 
 ```
@@ -299,9 +529,11 @@ docs/                   Project documentation
 frontend/               React + TypeScript app
   public/               Static assets (favicon, PWA icons, screenshots)
   src/
-    components/         Shared UI (OfflineBanner, ToastProvider, RequireAuth)
+    components/         Feature components (OfflineBanner, ToastProvider, RequireAuth)
+      ui/               Design system components (Button, Spinner, Input, FormField)
     lib/                API client (api.ts), auth context, alert socket hook
     pages/              Route pages (Home, Login, Signup, Friends, Alerts)
+    index.css           Design tokens (@theme): palette and typography
     App.tsx             Router and nav
     main.tsx            App entry: providers and root render
 docker-compose.yml
