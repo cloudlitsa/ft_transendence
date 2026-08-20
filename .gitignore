@@ -25,7 +25,7 @@ yarn-error.log*
 # OS / editor junk
 .DS_Store
 # Windows equivalent of .DS_Store
-.vscode/
+
 .idea/
 Thumbs.db
 
