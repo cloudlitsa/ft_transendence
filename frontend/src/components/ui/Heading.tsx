@@ -14,7 +14,7 @@ const levels: Record<Level, string> = {
 };
 
 interface HeadingProps {
-  /** Semantic level. Also picks the visual style unless `as` overrides it. */
+  /** Semantic level. Picks the visual style. */
   level?: Level;
   /**
    * Render a different tag than `level` implies. Use only to keep the
