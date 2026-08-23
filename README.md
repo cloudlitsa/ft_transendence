@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by evmouka.*
+*This project has been created as part of the 42 curriculum by evmouka, , mosokina, mtocu, mcoskune and aaladeok.*
 
 # Check-in app
 
@@ -13,9 +13,8 @@ makes this clear to users and in its Terms of Service.
 
 ## Status: in development
 
-Core features taking shape — containerized app served over HTTPS, TypeScript end
-to end, PostgreSQL with full schema, authentication, the friends system, and the
-alerts backend. See `docs/PROJECT.md` for the full plan.
+**11 of the 14 targeted module points are complete.** See *Modules* below for
+the tally and `docs/PROJECT.md` for the full plan.
 
 **Working now:**
 - Containerized dev environment (one command to run everything)
@@ -25,20 +24,19 @@ alerts backend. See `docs/PROJECT.md` for the full plan.
 - Auth: signup, login, logout, session check — hashed passwords, validated input,
   httpOnly + Secure cookie sessions, with working UI forms and a route guard
 - Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
-- Alerts backend: send, view, acknowledge, close
+- Alerts: send, view, acknowledge, close (backend + UI)
+- Profile page, avatar upload, and live online status for friends
 - In-app toast notifications, installable PWA with offline support
 - **Real-time alert delivery over WebSockets**, verified end to end through the
   reverse proxy
-- Custom design system: design tokens (palette + typography) and reusable
-  components, built on Tailwind CSS v4
-
-**In review:**
-- Alerts UI (send / acknowledge / close check-ins)
+- **Custom design system**: design tokens (palette + typography), a 15-glyph
+  icon set, and ten reusable components, built on Tailwind CSS v4
+- Terms of Service and Privacy Policy pages, linked from a global footer
 
 **Next:**
-- Chat
-- Profile page, avatar upload, online status
-- Remaining design system components and icons; responsive pass across all pages
+- Chat (the remaining half of the User Interaction module)
+- OAuth sign-in
+- Page-by-page adoption of the design system components; responsive pass
 
 ## Running it
 
@@ -201,10 +199,14 @@ network, which the subject permits.
   `frontend:5173`. Order matters: the catch-all would otherwise swallow API
   calls too. A second block redirects `http://localhost` to HTTPS, so plain HTTP
   doesn't simply fail to connect.
-- **`docker-compose.yml`** — the `proxy` service is the only one that publishes
-  ports (80 and 443). The frontend's old `5173:5173` mapping was **removed**, so
-  the requirement is satisfied structurally: there is no unencrypted way in,
-  rather than an encrypted way that happens to be preferred.
+- **`docker-compose.yml`** — the `proxy` service is the only one publishing a
+  port that reaches the *application* (80 and 443). The frontend's old
+  `5173:5173` mapping was **removed**, so the requirement is satisfied
+  structurally: there is no unencrypted way in, rather than an encrypted way
+  that happens to be preferred. The one other published port is Mailhog's web
+  UI on `8025` — a development-only mail catcher that serves no application
+  code, holds no user data, and is not part of a production deployment. Its
+  SMTP port (1025) is internal to the Docker network and is not published.
 - **Certificates** are generated per machine with mkcert into a gitignored
   `certs/` directory and mounted read-only into the proxy container.
 - **WebSocket upgrades** — both the app's `/api/ws` socket and Vite's hot-reload
@@ -220,6 +222,8 @@ network, which the subject permits.
    Clicking it shows "Verified by: mkcert development CA".
 2. `http://localhost` redirects to `https://localhost`.
 3. `http://localhost:5173` fails to connect — that port no longer exists.
+   `docker compose ps` confirms only `proxy` (80/443) and the dev mail catcher
+   (8025) publish anything at all.
 4. DevTools → Storage → Cookies → `auth_token` shows `Secure: true` and
    `HttpOnly: true`.
 5. Backend logs show requests arriving from the proxy, never from a browser
@@ -229,13 +233,11 @@ network, which the subject permits.
 
 The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Completed: 10 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) · Standard User Management (Major, 2) · ORM (Minor, 1) ·
-PWA (Minor, 1) · Notifications (Minor, 1) · GDPR (Minor, 1)
+**Completed: 11 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) ·
+Standard User Management (Major, 2) · ORM (Minor, 1) · PWA (Minor, 1) ·
+Notifications (Minor, 1) · GDPR (Minor, 1) · Custom design system (Minor, 1)
 
-
-
-**In progress: 4 pts** — 
-User Interaction (Major, 2) ·OAuth (Minor, 1) · Custom design system (Minor, 1)
+**In progress: 3 pts** — User Interaction (Major, 2) · OAuth (Minor, 1)
 
 > **Keep this tally current.** It is the first thing an evaluator reads to know
 > what the project claims. A module counts as complete only when it is merged
@@ -455,9 +457,6 @@ purpose, and the sender needs to see that someone has picked it up.
 
 ### Custom design system — Web · Minor · 1 pt
 
-> **Status: in progress.** Tokens, typography and 4 of the required 10+
-> components are merged. Remaining components and icons are tracked as TRAN-60.
-
 **What it is.** A custom design system — a defined colour palette, typography,
 icons, and a library of reusable components — rather than styling each page ad
 hoc. For this app it matters because the interface must stay legible and
@@ -485,8 +484,20 @@ enforced structurally rather than by remembering to be consistent.
   can be swapped in later by changing one line.
 
 - **Components** live in `frontend/src/components/ui/`, kept separate from
-  feature components (`OfflineBanner`, `ToastProvider`, `RequireAuth`).
-  Currently: `Button`, `Spinner`, `Input`, `FormField`.
+  feature components (`OfflineBanner`, `ToastProvider`, `RequireAuth`,
+  `Footer`): `Button`, `Spinner`, `Input`, `FormField`, `Icon`, `Card`,
+  `Badge`, `Banner`, `Heading`, `EmptyState` — ten in total.
+
+- **Icons** are hand-built SVG paths in a single `Icon` component holding a
+  16-glyph registry, rather than fifteen separate files or an installed
+  package. The module specifies a *custom-made* design system, so an icon
+  library would not qualify; and counting one glyph as one component would be
+  padding the total. `IconName` is derived from the registry with `satisfies
+  Record<string, ReactNode>`, which preserves the literal key types — so adding
+  a glyph extends the union automatically and a typo at a call site is a
+  compile error rather than a blank space in the UI. Icons are `aria-hidden` by
+  default: an icon beside a text label is decoration, and announcing it twice
+  is noise. A meaningful icon takes an explicit accessible name.
 
 **Decisions worth noting.**
 
@@ -514,6 +525,17 @@ enforced structurally rather than by remembering to be consistent.
   override. Tailwind resolves conflicts by stylesheet order, not by the order
   of names in the class attribute, so a passed `px-8` would not reliably beat a
   variant's `px-4`. Anything that varies visually is a prop.
+- `Heading` takes an `as` prop, decoupling visual size from semantic level. A
+  page sometimes needs a visually small `<h2>` — without this, people reach for
+  the tag that *looks* right and the document outline breaks.
+- `Banner` uses `role="alert"` for danger and warning (assertive — interrupts
+  the screen reader) and `role="status"` for info and success (polite — waits
+  for a pause). The urgency of the message, not the component, decides.
+- `Badge`'s `live` prop switches it to `role="status"`, for values that change
+  in place such as a friend coming online. It is off by default: a static badge
+  announcing itself is noise, and `role="img"` — the obvious-looking
+  alternative — is only announced if the user navigates onto it, which is
+  exactly wrong for a value that updates while they are reading elsewhere.
 
 **How to verify.**
 1. Inspect any button — its classes reference project tokens (`bg-brand-600`,
@@ -528,11 +550,12 @@ enforced structurally rather than by remembering to be consistent.
    spinner inherits the button's text colour (`currentColor`), so one Spinner
    component works on every variant.
 
-**Scope note.** The module requires 10+ reusable components plus palette,
-typography and icons. Four components are merged; the remainder (including an
-`Icon` component holding the icon set) are tracked as TRAN-60. Icons are
-hand-built SVG rather than an installed library, since the module specifies a
-*custom-made* design system.
+**Scope note.** The module requires a palette, typography, icons and 10+
+reusable components. All four are in place. The components are the ones the app
+actually uses — none were written purely to reach the count, which is why the
+list stops at ten rather than being inflated with near-duplicates. Adoption
+across the remaining pages is tracked as TRAN-45; the components and tokens
+themselves are complete.
 
 **Contributor.** evmouka
 
@@ -548,19 +571,42 @@ backend/                Fastify + TypeScript API
     routes/             API endpoints (auth.ts, friends.ts, gdpr.ts, alerts.ts, ws.ts)
     prisma.ts           Shared PrismaClient instance
     server.ts           App entry: plugin registration, health check
-docs/                   Project documentation
+docs/                   Project documentation (PROJECT, DEVELOPMENT, DECISIONS,
+                        DESIGN_SYSTEM, CONTRIBUTING, reference guides)
 frontend/               React + TypeScript app
   public/               Static assets (favicon, PWA icons, screenshots)
   src/
-    components/         Feature components (OfflineBanner, ToastProvider, RequireAuth)
-      ui/               Design system components (Button, Spinner, Input, FormField)
-    lib/                API client (api.ts), auth context, alert socket hook
-    pages/              Route pages (Home, Login, Signup, Friends, Alerts)
+    components/         Feature components (OfflineBanner, ToastProvider,
+                        RequireAuth, Footer)
+      ui/               Design system components (Button, Spinner, Input,
+                        FormField, Icon, Card, Badge, Banner, Heading,
+                        EmptyState)
+    lib/                API client (api.ts), auth context, presence context,
+                        alert socket hook
+    pages/              Route pages (Home, Login, Signup, Friends, Alerts,
+                        Profile, UserProfile, Terms, Privacy)
     index.css           Design tokens (@theme): palette and typography
     App.tsx             Router and nav
     main.tsx            App entry: providers and root render
 docker-compose.yml
 ```
+
+## Legal pages
+
+The app carries a **Terms of Service** (`/terms`) and a **Privacy Policy**
+(`/privacy`), linked from a global footer on every page. They are not a module
+in themselves, but they are where the project's central product claim is
+stated: the app is **not an emergency service**. That framing is load-bearing
+elsewhere — it is why the check-in action is amber rather than emergency-red in
+the design system, and why the copy never tells a user to rely on it in a
+crisis.
+
+Both pages describe rights rather than mechanisms. The Privacy Policy states
+that a user has the right to obtain a copy of their data and to have it erased;
+it deliberately does not name an endpoint or a settings screen, because a legal
+page that promises a specific mechanism goes stale the moment the UI changes.
+The backend implementing those rights is documented under *GDPR Compliance*
+above.
 
 ## Resources
 
