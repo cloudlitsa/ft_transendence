@@ -489,8 +489,8 @@ enforced structurally rather than by remembering to be consistent.
   `Badge`, `Banner`, `Heading`, `EmptyState` — ten in total.
 
 - **Icons** are hand-built SVG paths in a single `Icon` component holding a
-  16-glyph registry, rather than fifteen separate files or an installed
-  package. The module specifies a *custom-made* design system, so an icon
+  15-glyph registry, rather than fifteen separate files or an installed
+  package.
   library would not qualify; and counting one glyph as one component would be
   padding the total. `IconName` is derived from the registry with `satisfies
   Record<string, ReactNode>`, which preserves the literal key types — so adding
