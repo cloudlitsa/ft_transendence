@@ -3,6 +3,7 @@ import { useParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
 import type { ChatMessage, ChatSender  } from "../lib/chat";
+import { useMessages } from "../lib/MessagesContext.tsx";
 import Button from "../components/ui/Button";
 
 // TODO(TRAN-22): TEMPORARY mock data for building the UI before the backend
@@ -54,8 +55,10 @@ export default function ConversationPage() {
   const { id } = useParams();   // reads the ":id" out of the URL
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { messages, setMessages, setOpenAlertId } = useMessages();  const [loading, setLoading] = useState(true);
+  
+      // TODO(TRAN-22): setError is used by the real fetch (currently commented).
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");      // what's currently typed in the box
   const [sending, setSending] = useState(false); // true while a send is in flight
@@ -70,7 +73,9 @@ export default function ConversationPage() {
   useEffect(() => {
     if (!id) return;
     let cancelled = false;
-
+    
+    setOpenAlertId(id);          // ← tell the socket "this conversation is on screen"
+    
     // TODO(TRAN-22): remove this mock branch and enable the real fetch below
     // once the backend exists. Verify the shape with:
     //   curl -i -b /tmp/me1.txt http://localhost:5173/api/alerts/<id>/messages
@@ -93,8 +98,12 @@ export default function ConversationPage() {
     })();
     ------------------------------------------------------------------------------- */
 
-    return () => { cancelled = true; };
-  }, [id]);
+  return () => {
+    cancelled = true;
+    setOpenAlertId(null);      // ← no conversation open once we leave
+    setMessages([]);           // ← clear so the next conversation starts fresh
+  };
+}, [id]);
 
   if (loading) {
     return (
