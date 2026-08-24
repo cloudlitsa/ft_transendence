@@ -99,6 +99,24 @@ docker compose run --rm --user root backend npm install <package>
 The error names `EACCES` on a `rename` or `mkdir` without mentioning the
 user, which reads like a corrupted install rather than a permissions problem.
 
+**The uploads volume has the same trap, with a twist.** Docker creates a named
+volume's mount point as `root` if the path doesn't already exist in the image.
+`/app/uploads` didn't, so on a fresh volume the directory was root-owned while
+the process ran as `node` — and avatar uploads failed with *nothing* in the
+backend logs and nothing in the network tab. Just an empty directory and a
+`NULL` `avatar_url`. The backend Dockerfile now creates it explicitly, before
+`USER node`:
+
+```
+RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+```
+
+Note that `--user root` on a one-off `exec` is **not** the fix here. It
+repairs the running container and leaves the image alone, so the next person
+to clone the repo hits exactly the same thing. If you find yourself reaching
+for `--user root` on a directory the app writes to *at runtime*, the
+Dockerfile is what needs changing.
+
 ### Logs
 
 ```
@@ -201,18 +219,29 @@ Note the two flags:
 Reading from a jar you never wrote to gives `401 Not logged in`, which looks
 like an auth bug and isn't.
 
+**Use `https://localhost`, not a port.** Since Caddy landed, the proxy is the
+only way in — the frontend's old `5173` mapping was removed, so anything
+pointing at it now fails with a connection error rather than an HTTP one. The
+`-k` flag tells curl to accept the mkcert development certificate, which it
+otherwise refuses because it isn't in the system trust store. Without `-k` you
+get `SSL certificate problem: unable to get local issuer certificate`.
+
+Plain `http://localhost` also works but returns `301 Moved Permanently` to the
+https URL, and curl doesn't follow redirects unless you pass `-L` — so a
+login through it silently writes no cookie and every later request 401s.
+
 ```
 # log in and save the cookie
-curl -i -c /tmp/me1.txt -X POST http://localhost:5173/api/auth/login \
+curl -ik -c /tmp/me1.txt -X POST https://localhost/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"me1@example.com","password":"mypassword1"}'
 
 # use it
-curl -i -b /tmp/me1.txt http://localhost:5173/api/alerts
+curl -ik -b /tmp/me1.txt https://localhost/api/alerts
 
 # status code only — useful for checking 201 vs 409 vs 404
-curl -s -o /dev/null -w "%{http_code}\n" -b /tmp/me1.txt \
-  -X POST http://localhost:5173/api/alerts \
+curl -sk -o /dev/null -w "%{http_code}\n" -b /tmp/me1.txt \
+  -X POST https://localhost/api/alerts \
   -H "Content-Type: application/json" -d '{"alertType":"need_chat"}'
 ```
 
@@ -228,8 +257,8 @@ parallel, which catches races that sequential testing misses:
 
 ```
 for i in 1 2 3 4 5; do
-  curl -s -o /dev/null -w "%{http_code}\n" -b /tmp/me1.txt \
-    -X POST http://localhost:5173/api/alerts \
+  curl -sk -o /dev/null -w "%{http_code}\n" -b /tmp/me1.txt \
+    -X POST https://localhost/api/alerts \
     -H "Content-Type: application/json" -d '{"alertType":"need_chat"}' &
 done; wait
 ```
@@ -238,7 +267,11 @@ done; wait
 
 ## Testing in the browser
 
-The signup/login forms aren't built yet, so get a session from the DevTools
+The signup and login forms exist now, so the quickest route to a session is
+just to use them. The console method below is still useful for driving a
+second account in a private window, or for testing a request in isolation.
+
+Get a session from the DevTools
 console. `credentials: "include"` matters — without it the cookie isn't
 stored.
 
