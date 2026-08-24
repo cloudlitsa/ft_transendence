@@ -350,6 +350,7 @@ export default function AlertsPage() {
             >
               {busyId === myAlert.id ? "Closing…" : "Close this check-in"}
             </button>
+            <Link to={`/alerts/${myAlert.id}`}>Open conversation →</Link>
           </article>
         )}
       </section>
