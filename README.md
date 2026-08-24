@@ -1,4 +1,4 @@
-*This project has been created as part of the 42 curriculum by evmouka, , mosokina, mtocu, mcoskune and aaladeok.*
+*This project has been created as part of the 42 curriculum by evmouka, mosokina, mtocu, mcoskune and aaladeok.*
 
 # Check-in app
 
