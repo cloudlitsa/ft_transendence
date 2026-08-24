@@ -1,10 +1,12 @@
 import { useEffect, useState, useRef, type FormEvent } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
 import type { ChatMessage, ChatSender  } from "../lib/chat";
 import { useMessages } from "../lib/MessagesContext.tsx";
 import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import Badge from "../components/ui/Badge";
 
 // TODO(TRAN-22): TEMPORARY mock data for building the UI before the backend
 // endpoints exist. DELETE this whole block once GET /alerts/:id/messages works.
@@ -51,11 +53,36 @@ function Avatar({ user }: { user: ChatSender }) {
   );
 }
 
+interface HeaderAlert {
+  note?: string | null;
+  status?: string;
+  sender?: { displayName: string; avatarUrl: string | null };
+}
+
 export default function ConversationPage() {
   const { id } = useParams();   // reads the ":id" out of the URL
+
+  // TODO(TRAN-22): Option A — the alert object is passed via <Link state> from
+  // AlertsPage. It's undefined on a hard refresh / direct URL (state is lost),
+  // and the header simply hides in that case.
+  const location = useLocation();
+  const alert = (location.state as { alert?: HeaderAlert } | null)?.alert;
+
+  /* ---- Option B (use once GET /alerts/:id exists; delete Option A above) ----
+  // Survives refresh because it re-fetches instead of relying on nav state.
+  const [alert, setAlert] = useState<HeaderAlert | undefined>();
+  useEffect(() => {
+    if (!id) return;
+    api.get<{ alert: HeaderAlert }>(`/alerts/${id}`)
+      .then((res) => setAlert(res.alert))
+      .catch(() => setAlert(undefined));   // header just hides on failure
+  }, [id]);
+  --------------------------------------------------------------------------- */
+
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const { messages, setMessages, setOpenAlertId } = useMessages();  const [loading, setLoading] = useState(true);
+  const { messages, setMessages, setOpenAlertId } = useMessages();
+  const [loading, setLoading] = useState(true);
   
       // TODO(TRAN-22): setError is used by the real fetch (currently commented).
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -168,6 +195,22 @@ export default function ConversationPage() {
 return (
   <main className="flex flex-col gap-4">
     <h1 className="text-xl font-semibold">Conversation</h1>
+
+    {alert && (
+      <Card padding="sm" className="flex items-start gap-3 bg-alert-50">
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className="font-semibold text-alert-700">
+              {alert.sender ? `${alert.sender.displayName} sent a check-in` : "Your check-in"}
+            </p>
+            <Badge tone={alert.status === "closed" ? "neutral" : "success"}>
+              {alert.status === "closed" ? "closed" : "active"}
+            </Badge>
+          </div>
+          {alert.note && <p className="mt-1 font-medium text-ink">"{alert.note}"</p>}
+        </div>
+      </Card>
+    )}
 
     <ul className="flex flex-col gap-3">
       {messages.map((m) => {
