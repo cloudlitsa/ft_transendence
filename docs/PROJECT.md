@@ -2,7 +2,7 @@
 
 *PO working doc. Scope, plan and reasoning. For live module status see
 `README.md`; for technical decisions see `docs/DECISIONS.md`.
-Last updated: 12/08/26*
+Last updated: 23/08/26*
 
 ## What this is
 
@@ -89,13 +89,41 @@ section is the plan and the justification.
 - **File upload** (Minor, 1 pt) — we're building avatar upload anyway as part of Standard User Management, so claiming it separately would need genuine extra substance (validation, size limits, storage strategy) to survive "does this add real value". Worth revisiting as a **buffer point** if we want to go above 14.
 - **Advanced search** (Minor, 1 pt) — would be forced. Nothing in a closed friends circle needs filtering, sorting and pagination.
 
-### The buffer problem
+### The buffer problem — decided: no buffer
 
-We are at **exactly 14**, with no slack. The eval sheet is explicit that a
-non-functional or incomplete module scores zero, so a single module wobbling on
-the day drops us to 12 or 13 and we fail. Options for a 15th point, in order of
-preference: **File upload** (avatar work is happening anyway), **2FA**
-(unparked), **Advanced search** (forced, last resort).
+We are at **exactly 14**, with no slack, and we are staying there.
+
+The eval sheet is explicit that a non-functional or incomplete module scores
+zero, so a single module wobbling on the day drops us to 12 or 13 and we fail.
+The obvious mitigation was a 15th point — **File upload**, **2FA**, or
+**Advanced search**, in that order of preference.
+
+**We are not taking it.** As of 23/08 there are nine days to the team
+deadline, 11 of the 14 points are merged, and the remaining 3 sit in work that
+is still in progress — chat (TRAN-22 backend, TRAN-23 frontend) and OAuth
+(TRAN-21). Adding a fifteenth module would mean starting fresh work while two
+already-claimed modules are still to land: spending scarce time buying
+insurance against a risk smaller than the one we'd be ignoring.
+
+The mitigation is therefore a different shape: **make the 11 merged points
+undeniable, and get the remaining 3 owned.** Concretely —
+
+- every merged module verified end to end and documented in `README.md`, so
+  none of them is the one that wobbles
+- the mandatory requirements cleared (zero console errors, fresh-clone
+  deploy, multi-user concurrency, accessibility pass) — these are pass/fail
+  on the whole project, so they outrank any single point
+- an evaluation dry run booked, with each member able to explain their own
+  work
+- TRAN-21, TRAN-22 and TRAN-23 each with a clear owner and a date, so that if
+  any isn't going to land we drop the module early and deliberately rather
+  than discover it on the day
+
+If OAuth or chat is formally written off with a week still to run, revisit
+this — **File upload** remains the cheapest replacement, since avatar upload
+already exists and only needs the validation and storage story documented as
+its own module. That is a decision to take deliberately, not a plan to drift
+into.
 
 **Important honest note**: the "Advanced permissions" module is about admin/user/moderator roles with CRUD on users — it does NOT fit "friend tiers" naturally.
 
@@ -107,7 +135,8 @@ preference: **File upload** (avatar work is happening anyway), **2FA**
 - WebSockets: `@fastify/websocket` (agreed — raw WebSocket API, reuses the existing cookie/JWT auth path, no client bundle; rationale in `docs/DECISIONS.md`)
 - Auth: bcryptjs, JWT with httpOnly cookies, Zod validation
 - Deployment: Docker Compose
-- HTTPS: reverse proxy terminating TLS, to be added (mandatory per subject)
+- HTTPS: Caddy reverse proxy terminating TLS, the single public entry point
+  (rationale in `docs/DECISIONS.md`)
 
 Why TypeScript both sides: shared interfaces between frontend and backend save bugs. Why Postgres: relational data (users, friendships, alerts, messages) fits perfectly. Why Prisma: the ORM minor module needs an ORM that's actually used, Prisma makes that obvious.
 
@@ -117,36 +146,70 @@ Full reasoning for these and the security patterns is in `docs/DECISIONS.md`.
 
 - **Litsa** — Product Owner + Developer
 - **Maria** — Tech Lead + Developer
-- **TBD** — Project Manager + Developer
+- **Ade** — Project Manager + Developer
+- **Mihaela** — Developer
 - **Muktim** — Developer
 
-4 people, not 5. Less coordination overhead. PO + PM + Tech Lead all double as
-devs, which the subject explicitly allows for a team this size.
+Five people. PO, PM and Tech Lead all double as devs, which the subject
+explicitly allows. Every member needs merged commits they can explain
+individually — see *Risks*.
 
 ## Ways of working
 
-- **Comms:** Discord
+- **Comms:** Slack (primary coordination), Discord (informal)
 - **Board:** Jira (project TRAN)
 - **Git:** feature branches → PR → 1 approving review required → squash and merge → delete branch. See `CONTRIBUTING.md`.
-- **Docs:** `README.md` (what it is, how to run it, module status) · `CONTRIBUTING.md` (branches and PRs) · `docs/DEVELOPMENT.md` (day-to-day workflow and gotchas) · `docs/DECISIONS.md` (why things are built the way they are)
+- **Docs:**
+  - `README.md` — what it is, how to run it, module status and per-module justification
+  - `CONTRIBUTING.md` — branches and PRs
+  - `docs/PROJECT.md` — this file: scope, plan, roles, risks
+  - `docs/DECISIONS.md` — why things are built the way they are, and the trade-offs accepted
+  - `docs/DEVELOPMENT.md` — day-to-day workflow and gotchas
+  - `docs/websocket-demo.md` — reproducible end-to-end demo of the WebSockets module
+  - `docs/tailwind-reference.md` — Tailwind v4 reference (v4 configures differently from v3)
+  - `docs/git-guide.md` — personal git reference
 
 ## Risks
 
 - **Exactly 14 points, no buffer.** One module failing at evaluation = fail. Mitigation: pick a 15th (see above) once the current work lands.
 - **Team size.** The subject specifies 4–5 people and the eval sheet's first check is that all members are present. Any further drop below four needs resolving with staff, not absorbing quietly.
 - **Uneven contribution.** Every member is asked individually to explain their work, and git history is checked. Everyone needs merged commits, not just assigned tickets.
-- **HTTPS is still missing.** Mandatory requirement, not a point — currently a rejection risk rather than a scoring one.
-- **Legal pages.** Missing or placeholder ToS/Privacy is an explicit rejection condition. Small work, high consequence.
+- **3 of the 14 points are still in progress.** User Interaction (2 pts) needs chat: TRAN-22 (backend) is in progress, TRAN-23 (frontend) is not yet assigned. OAuth (TRAN-21, 1 pt) is in progress. Together these carry 3 of the 14 points, so this is the project's largest open risk. Each needs a clear owner with capacity and an agreed date after which the module is dropped deliberately rather than discovered incomplete on the day.
 - **PWA push notifications on iOS are flaky.** Documented limitation; scoped out of the PWA module (which covers installability + offline). We surface it in the app rather than cover it up.
+
+### Closed risks
+
+Kept rather than deleted — the record that a risk was handled is worth as much
+at evaluation as the warning was beforehand.
+
+- **HTTPS** — resolved. Caddy terminates TLS as the single public entry point,
+  and the frontend's direct port mapping was removed, so there is no
+  unencrypted route into the app rather than an encrypted one that happens to
+  be preferred.
+- **Legal pages** — resolved. Terms of Service and Privacy Policy merged,
+  linked from a global footer on every page. Both describe rights rather than
+  mechanisms, so they don't go stale when the UI changes.
+- **Project Manager unfilled** — resolved. Ade joined mid-project.
 
 ## Resolved questions
 
 - **Can we claim both Standard user management and User interaction?** Yes — confirmed with pedago. This is what closed the gap from 12 to 14.
 - **Stack** — agreed as above.
 - **WebSocket library** — `@fastify/websocket`.
-- **Comms / project management** — Discord and Jira.
+- **Comms / project management** — Slack for coordination, Jira for the board.
+- **Project Manager** — Ade, joined mid-project.
+- **Do we add a 15th point for buffer?** No — see *The buffer problem* above.
 
 ## Open questions
 
-- Who takes Project Manager?
-- Which module do we add as the 15th point, and who owns it?
+- **Who is driving TRAN-23 (chat frontend)?** Unassigned. The backend
+  (TRAN-22) is in progress, but without the frontend the User Interaction
+  major (2 pts) doesn't count.
+- **What is the cut-off date for chat and OAuth (TRAN-21)?** We need a date on
+  which we either have them or drop the module, so the decision is taken with
+  time to spare rather than at the deadline.
+- **TRAN-3 (buffer module) is still open on the board.** Per *The buffer
+  problem* above it should be closed as won't-do, or kept only as a documented
+  fallback if chat or OAuth is formally dropped.
+- **When is the evaluation dry run?** No date set. Every member needs to be
+  able to explain their own work.

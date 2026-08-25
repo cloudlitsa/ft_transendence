@@ -1,10 +1,15 @@
 # Tailwind CSS v4 — reference
 
-Litsa · ft_transcendence · 19 Aug 2026
+Litsa · ft_transcendence · updated 24 Aug 2026
 
 Written for converting this project's inline `style={{}}` objects to utility
 classes. Tailwind **v4** specifically — v3 configures completely differently and
 most tutorials online are still v3.
+
+> **Read §7 before picking a colour.** The design system module has landed, so
+> colour and typography now come from `@theme` tokens rather than Tailwind's
+> stock palette. The tables in this file describe what Tailwind gives you; the
+> design tokens describe what this project uses.
 
 ---
 
@@ -207,8 +212,31 @@ Other: `italic` · `underline` · `uppercase` · `leading-relaxed` (line height)
 
 ## 7. Colour
 
-Pattern: `{property}-{colour}-{shade}`. Shades run 50 (lightest) to 950
-(darkest), in steps of 100.
+**Use the design tokens, not the stock palette.** The custom design system is a
+claimed module, and it defines the project's colours as `@theme` tokens in
+`frontend/src/index.css`. A component written with `bg-blue-600` works, but it
+sits outside the system — which is the opposite of what the module is for, and
+it's the first thing an evaluator will notice if two buttons are different
+blues.
+
+The token names are in `index.css` and documented in the README under *Custom
+design system*. Read them there rather than trusting a list here that will
+drift.
+
+Two consequences worth holding onto:
+
+- **Reach for a component before a colour.** If you're about to write
+  `bg-…` on a button, use `<Button>`. The components exist so colour decisions
+  live in one place. Colour utilities are for the rare case with no component.
+- **No raw hex, ever.** `style={{ color: "#22c55e" }}` or `bg-[#22c55e]`
+  bypasses the system entirely. If a colour you need isn't a token, the answer
+  is to add a token, not to inline the value.
+
+### How Tailwind's palette works (for reading the docs)
+
+You'll still meet stock classes in tutorials and in unconverted files, so it's
+worth understanding the shape. The pattern is
+`{property}-{colour}-{shade}`, shades running 50 (lightest) to 950 (darkest):
 
 | Property | Prefix |
 |---|---|
@@ -216,19 +244,10 @@ Pattern: `{property}-{colour}-{shade}`. Shades run 50 (lightest) to 950
 | background | `bg-` |
 | border | `border-` |
 
-```jsx
-text-gray-700      // body text
-text-red-600       // the emergency disclaimer
-bg-gray-100        // subtle panel
-bg-blue-600        // primary button
-border-gray-300    // input border
-```
-
 Rough guide: **50–200** backgrounds · **400–600** borders and accents ·
-**700–900** text.
-
-Keep the palette small. Picking two or three colours and reusing them is what
-makes an app look designed rather than assembled.
+**700–900** text. Neutral greys (`text-gray-700`, `border-gray-300`) are the
+least objectionable to use directly, since the design system is mostly
+concerned with brand and status colour — but check for a token first.
 
 ---
 
@@ -306,7 +325,13 @@ mouse clicks) · `group-hover:`
 
 ## 11. Forms
 
-The pattern to establish once in `LoginPage` and reuse everywhere:
+> **This is now the `FormField` component's job.** `FormField` composes the
+> label, input, error message and the `htmlFor`/`aria-describedby` wiring, so
+> new forms should use it rather than rebuilding the markup. The pattern below
+> is kept because it shows what `FormField` does internally — useful when
+> something looks wrong and you need to know which layer to fix.
+
+The pattern, as originally established in `LoginPage`:
 
 ```jsx
 <div className="flex flex-col gap-4 max-w-sm">
@@ -331,8 +356,13 @@ The pattern to establish once in `LoginPage` and reuse everywhere:
 
 Note `htmlFor` on the label matching the input's `id` — that's an accessibility
 requirement (TRAN-56), not a Tailwind thing, but this is where it gets written.
+`FormField` does this for you by generating the id.
 
-Error messages keep `role="alert"`, which the auth forms already do.
+Errors have two forms and they aren't interchangeable: a **field** error is
+tied to its input with `aria-describedby`, while a **form-level** error (like
+"invalid credentials") uses `role="alert"` so a screen reader announces it
+immediately. The login form deliberately doesn't say *which* field failed —
+that would let someone probe for registered emails.
 
 ---
 
@@ -386,6 +416,9 @@ cannot see classes you build by concatenation.
 - **Restart the dev server** after touching `vite.config.js` — plugin changes
   aren't hot-reloaded.
 - **Don't convert files that are in someone else's open PR.**
+- **Check for a component before writing utilities.** Ten exist. Rebuilding a
+  card or a badge out of raw classes is how a design system quietly stops
+  being one.
 
 ---
 
@@ -402,6 +435,12 @@ own.
 
 **"Show me where it's used."**
 Any converted component. Have one open.
+
+**"How does this relate to your design system module?"**
+Tailwind is the primitive layer; the design system is built on top of it as
+`@theme` tokens plus ten components. The distinction that matters: Tailwind
+was installed, the design system was *built*. Show `index.css` for the tokens
+and `components/ui/` for the components.
 
 **"How does responsive work?"**
 Breakpoint prefixes — `flex-col md:flex-row`. Demonstrate with the DevTools
