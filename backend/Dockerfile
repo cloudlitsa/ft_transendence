@@ -20,6 +20,7 @@ COPY . .
 
 # 4. Make /app writable by node before we switch to that user.
 RUN chown -R node:node /app
+RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
 
 # 5. The node:22-alpine image ships with a non-root user called "node".
 USER node

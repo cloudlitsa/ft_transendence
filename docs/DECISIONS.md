@@ -57,6 +57,11 @@ signs tokens with a publicly-known key. Better to refuse to boot.
 
 ## Who can see what
 
+> **Status.** The schema and the backend were built against the decisions in
+> this section; the chat UI (TRAN-23) is not yet built. These are the design
+> the data model was chosen to support, not a description of a finished
+> feature.
+
 ### Chat is a group conversation, not per-friend threads
 
 A `Message` belongs to an alert and has **no recipient field**. Its audience is
@@ -290,11 +295,92 @@ Broadcasts go to a **named list of user IDs**, not to every connected socket.
 That's the "efficient message broadcasting" the subject asks for: an alert
 reaches the sender's friends, nobody else.
 
+### Avatar storage: files on disk, not in the database
+
+Uploaded avatars are stored as files in `/app/uploads` in the backend
+container, on a named Docker volume, and served as static files by
+`@fastify/static`. The `users.avatar_url` column holds a URL path, not image
+bytes.
+
+Storing the bytes in Postgres was the alternative. It would grow the database,
+add a query to every avatar load, and inflate every backup — for no gain,
+since nothing about an image benefits from being in a relational table.
+
+Validation is **server-side**, because the browser can be bypassed entirely:
+`@fastify/multipart` enforces a JPEG/PNG/WebP allowlist and a 2 MB cap. Stored
+files get a randomly generated name — the client's filename is never trusted,
+since a caller controls it completely and a path like `../../etc/passwd` is
+just a string until something uses it. The previous file is unlinked on
+replace or delete, so the volume doesn't accumulate orphans. An empty
+`avatar_url` renders a default avatar rather than a broken image.
+
+### Dev mail goes to a catcher, not a real inbox
+
+Confirmation emails for GDPR export and deletion send over SMTP to a
+**Mailhog** container in development, viewable at `localhost:8025`. Going live
+is an env-var change, not a code change: `sendMail` is a generic helper with
+no GDPR-specific logic.
+
+Sends are **fire-and-forget**. A mail failure is logged and never blocks the
+export or the delete, because a user's GDPR right must not depend on an SMTP
+server being reachable.
+
+On Apple Silicon the Mailhog image is `linux/amd64` and runs under emulation,
+which Docker warns about on every `up`. It works; it's just slower to start.
+Not worth pinning a platform or swapping the image for a dev-only mail
+catcher.
+
+Two consequences we accepted:
+
+- Mailhog's web UI is the one published port besides the proxy. It serves no
+  application code and holds no user data, so it doesn't weaken the HTTPS
+  requirement — but it's worth being able to explain rather than being caught
+  by it. Its SMTP port (1025) stays internal to the Docker network.
+- The Privacy Policy deliberately **doesn't** promise confirmation emails,
+  even though they are sent. A legal page that names a mechanism goes stale
+  the moment the mechanism changes; under-promising there costs nothing,
+  while over-promising is the error that actually matters.
+
 ### Non-root containers
 
 Both Dockerfiles run as `node` rather than `root`, so a compromised process
 doesn't have root inside the container. Cost: a `chown` step in the build and
 occasional `--user root` on one-off write commands (see `DEVELOPMENT.md`).
+
+**The cost is real, and it bit us.** Docker creates a named volume's mount
+point as `root` if the path doesn't already exist in the image. `/app/uploads`
+didn't, so on a fresh volume the directory was owned by `root` while the
+process ran as `node` — and every avatar upload failed silently at the
+filesystem. Nothing in the logs, nothing in the network tab, just an empty
+directory and a `NULL` `avatar_url`.
+
+The fix is to create the directory in the image, with the right owner, before
+switching user:
+
+```dockerfile
+RUN chown -R node:node /app
+RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+USER node
+```
+
+Docker then seeds the volume from the image directory and the ownership comes
+with it.
+
+Two things worth keeping from this. **A fresh-clone test has to exercise the
+features that touch volumes**, not just confirm the containers start —
+ours passed while avatar upload was broken, because nothing in the smoke test
+wrote a file. And **`--user root` in a one-off `exec` masks the problem**: it
+fixes the running container while leaving the image, and therefore every
+future clone, unchanged.
+
+### Design system decisions live in the README
+
+The palette, typography, icon registry and per-component reasoning (why alert
+actions are amber rather than red, why `focus-visible` rather than `focus`,
+why the online-status indicator is `role="status"`) are documented in
+`README.md` under *Custom design system*, alongside the module claim they
+support. They are not duplicated here — one authoritative copy, so the two
+can't drift apart.
 
 ### TypeScript on both sides
 
@@ -334,14 +420,3 @@ tree into the project and reports more findings than it fixes.
 Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
-
-## Avatar Storage: Files on Disk, Not in the Database
-
-We store uploaded avatars in a folder on disk (`/app/uploads` in the backend container
-with a named Docker volume) and serve them as static files using `@fastify/static`. The
-`users.avatar_url` column only contains the URL path, not the actual image data.
-
-**Why Not Store Bytes in PostgreSQL?**  Storing images in the database makes it larger, slows down avatar loading because it requires extra database calls, and increases backup sizes. Keeping files on disk allows the database to stay small and supports efficient file serving.
-
-**Validation and Safety:**  We validate every upload **server-side**: only jpeg, png, and webp files are accepted, and size is capped at 2 MB via `@fastify/multipart`. We generate
-random filenames for stored files (the client's filename is never trusted) and delete the old file when an avatar is replaced. If `avatar_url` is empty, a default avatar is shown.
