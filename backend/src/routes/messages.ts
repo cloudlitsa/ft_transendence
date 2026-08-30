@@ -7,6 +7,8 @@ import type { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
+import { getFriendIds } from "../lib/friendships.js";
+import { broadcastToUsers } from "../lib/wsRegistry.js";
 
 // ---------- Access check (shared by both routes) ----------
 // The alert must exist, and `me` must be the sender OR an accepted friend
@@ -68,14 +70,29 @@ export async function messagesRoutes(fastify: FastifyInstance) {
     }
 
     const message = await prisma.message.create({
-        data: { alertId: id, senderId: me, content },
-        select: {
+      data: { alertId: id, senderId: me, content },
+      select: {
         id: true,
         content: true,
         createdAt: true,
         sender: { select: { id: true, displayName: true, avatarUrl: true } },
-        },
+      },
     });
+
+    // Real-time: push to everyone on this alert's conversation except the
+    // poster. The audience is the same trust boundary as canAccessAlert —
+    // the alert's sender plus the sender's accepted friends — so anyone who
+    // can read the thread gets the live update. `me` is removed because they
+    // already have this message in the POST response; re-sending would show
+    // it twice in their own UI. Best-effort: a socket failure must not fail
+    // the request — the message is already committed and a later GET returns it.
+    try {
+      const friendIds = await getFriendIds(senderId);
+      const recipients = [senderId, ...friendIds].filter((uid) => uid !== me);
+      broadcastToUsers(recipients, { type: "message:new", message });
+    } catch (err) {
+      request.log.error({ err }, "failed to broadcast message:new");
+    }
 
     return reply.code(201).send({ message });
   }); 
