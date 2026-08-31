@@ -31,10 +31,15 @@ export default function App() {
     <>
       {/* Full-width bar at the very top; renders only when offline. */}
       <OfflineBanner />
+      
+      {/* The app shell. p-4 md:p-8 is the responsive half of TRAN-45: 1rem of
+          padding on a phone, 2rem from 768px up. The old inline style was a
+          fixed 2rem, and an inline style has nowhere to put a media query. */}
 
-      <div style={{ fontFamily: "system-ui, sans-serif", maxWidth: "600px", margin: "0 auto", padding: "2rem", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <div className="font-sans max-w-xl mx-auto p-4 md:p-8 min-h-screen flex flex-col">
         {/* Simple nav. <Link> changes the URL without a full page reload. */}
-        <nav style={{ display: "flex", gap: "1rem", marginBottom: "2rem", flexWrap: "wrap", alignItems: "center" }}>
+
+        <nav className="flex flex-wrap items-center gap-4 mb-8">
           <Link to="/">Home</Link>
           {loading ? null : user ? (
             <>
@@ -51,7 +56,10 @@ export default function App() {
           )}
         </nav>
 
-        <div style={{ flex: 1 }}>
+        {/* flex-1 makes the page area absorb the spare height, which keeps the
+            footer at the bottom of the viewport on short pages. */}
+
+        <div className="flex-1">
           <Routes>
             <Route path="/" element={<HomePage />} />
             <Route path="/login" element={<LoginPage />} />
