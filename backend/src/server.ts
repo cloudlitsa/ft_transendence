@@ -4,7 +4,7 @@ import { prisma } from "./prisma.js";
 import { authRoutes } from "./routes/auth.js";
 import { friendsRoutes } from "./routes/friends.js";
 import { alertsRoutes } from "./routes/alerts.js";
-import { messagesRoutes } from "./routes/messages.js"; //Ade: I added this.
+import { messagesRoutes } from "./routes/messages.js";
 import { gdprRoutes } from "./routes/gdpr.js";
 import { wsRoutes } from "./routes/ws.js";
 import { profileRoutes } from "./routes/profile.js";
@@ -34,7 +34,7 @@ await fastify.register(friendsRoutes, { prefix: "/api/friends" });
 
 // Alerts endpoints live under /api/alerts/*
 await fastify.register(alertsRoutes, { prefix: "/api/alerts" });
-await fastify.register(messagesRoutes, { prefix: "/api/alerts" });   //Ade: I added this
+await fastify.register(messagesRoutes, { prefix: "/api/alerts" });
 await fastify.register(gdprRoutes, { prefix: "/api/account" });
 
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
