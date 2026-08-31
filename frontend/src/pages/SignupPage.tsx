@@ -19,9 +19,9 @@ export default function SignupPage() {
   const { refresh } = useAuth();
 
   async function handleSubmit(e: FormEvent) {
-  e.preventDefault();
-  setError("");
-  setFieldErrors({});
+    e.preventDefault();
+    setError("");
+    setFieldErrors({});
 
   // Client-side validation mirrors the backend's Zod rules — UX only, not
   // security. Errors attach to their field so a screen reader announces the

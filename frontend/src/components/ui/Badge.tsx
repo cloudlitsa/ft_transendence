@@ -51,27 +51,30 @@ export default function Badge({
   className = "",
   title,
 }: BadgeProps) {
-  if (appearance === "dot") {
+      if (appearance === "dot") {
+    const dot = `inline-block size-2 rounded-full ${dotTones[tone]} ${className}`;
+
+    // Live status: two elements, each doing one job.
+    // The dot is decoration — hidden from screen readers, keeps the tooltip.
+    // The sr-only span is the live region: role="status" announces its TEXT
+    // when that text changes, so the words have to be inside it.
+    if (live) {
+      return (
+        <>
+          <span aria-hidden="true" title={title} className={dot} />
+          <span role="status" className="sr-only">{children}</span>
+        </>
+      );
+    }
+
+    // Static dot: role="img" ignores its contents, so the name must be a label.
     return (
       <span
-        role={live ? "status" : "img"}
+        role="img"
         aria-label={typeof children === "string" ? children : undefined}
         title={title}
-        className={`inline-block size-2 rounded-full ${dotTones[tone]} ${className}`}
+        className={dot}
       />
     );
   }
-
-  return (
-    <span
-      role={live ? "status" : undefined}
-      title={title}
-      className={
-        "inline-flex items-center rounded-full px-2 py-0.5 " +
-        `text-xs font-medium ${pillTones[tone]} ${className}`
-      }
-    >
-      {children}
-    </span>
-  );
 }
