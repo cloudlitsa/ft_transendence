@@ -14,6 +14,15 @@ import OfflineBanner from "./components/OfflineBanner.tsx";
 import { useAlertSocket } from "./lib/useAlertSocket.ts";
 import { useAuth } from "./lib/AuthContext.tsx";
 import RequireAuth from "./components/RequireAuth.tsx";
+import Button from "./components/ui/Button.tsx";
+
+// Shared styling for the nav links. Declared once rather than repeated on five
+// <Link>s, so the nav stays consistent by construction. The focus ring matches
+// Button's, so keyboard focus looks the same everywhere in the app.
+const navLink =
+  "rounded-md px-1 py-0.5 text-ink-muted transition-colors hover:text-ink " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 " +
+  "focus-visible:ring-offset-2";
 
 // App is now the router for the whole app. It decides what page to render based on the URL path.
 // Routes is a container for all the Route components. Each Route component defines a path and the component to render when the path matches the URL.
@@ -37,21 +46,26 @@ export default function App() {
           fixed 2rem, and an inline style has nowhere to put a media query. */}
 
       <div className="font-sans max-w-xl mx-auto p-4 md:p-8 min-h-screen flex flex-col">
-        {/* Simple nav. <Link> changes the URL without a full page reload. */}
+        {/* Simple nav. <Link> changes the URL without a full page reload.
+            The links navigate; Log out performs an action, so it's a Button.
+            That difference is deliberate - it's the same distinction that
+            decides <a> vs <button> for assistive tech. */}
 
         <nav className="flex flex-wrap items-center gap-4 mb-8">
-          <Link to="/">Home</Link>
+          <Link to="/" className={navLink}>Home</Link>
           {loading ? null : user ? (
             <>
-              <Link to="/profile">Profile</Link>
-              <Link to="/friends">Friends</Link>
-              <Link to="/alerts">Check-ins</Link>
-              <button onClick={handleLogout}>Log out</button>
+              <Link to="/profile" className={navLink}>Profile</Link>
+              <Link to="/friends" className={navLink}>Friends</Link>
+              <Link to="/alerts" className={navLink}>Check-ins</Link>
+              <Button variant="secondary" size="sm" onClick={handleLogout}>
+                Log out
+              </Button>
             </>
           ) : (
             <>
-              <Link to="/login">Log in</Link>
-              <Link to="/signup">Sign up</Link> 
+              <Link to="/login" className={navLink}>Log in</Link>
+              <Link to="/signup" className={navLink}>Sign up</Link> 
             </>
           )}
         </nav>
