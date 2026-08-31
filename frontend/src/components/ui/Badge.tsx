@@ -35,6 +35,12 @@ interface BadgeProps {
    */
   live?: boolean;
   className?: string;
+  /**
+   * Native browser tooltip on hover. Sighted mouse users get no benefit from
+   * the aria-label, so a dot whose meaning is carried entirely by colour
+   * should usually have one.
+   */
+  title?: string;
 }
 
 export default function Badge({
@@ -43,12 +49,14 @@ export default function Badge({
   live = false,
   children,
   className = "",
+  title,
 }: BadgeProps) {
   if (appearance === "dot") {
     return (
       <span
         role={live ? "status" : "img"}
         aria-label={typeof children === "string" ? children : undefined}
+        title={title}
         className={`inline-block size-2 rounded-full ${dotTones[tone]} ${className}`}
       />
     );
@@ -57,6 +65,7 @@ export default function Badge({
   return (
     <span
       role={live ? "status" : undefined}
+      title={title}
       className={
         "inline-flex items-center rounded-full px-2 py-0.5 " +
         `text-xs font-medium ${pillTones[tone]} ${className}`
