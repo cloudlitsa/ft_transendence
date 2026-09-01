@@ -17,7 +17,7 @@ import RequireAuth from "./components/RequireAuth.tsx";
 import Button from "./components/ui/Button.tsx";
 
 // Shared styling for the nav links. Declared once rather than repeated on five
-// <Link>s, so the nav stays consistent by construction. The focus ring matches
+// <NavLink>s, so the nav stays consistent by construction. The focus ring matches
 // Button's, so keyboard focus looks the same everywhere in the app.
 const navLinkBase =
   "rounded-md px-2 py-1 text-ink-muted transition-colors " +
