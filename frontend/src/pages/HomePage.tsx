@@ -86,7 +86,7 @@ export default function HomePage() {
       {/* ---- How it works. Stacked on a phone, three across from 640px. ---- */}
       <section className="grid gap-4 sm:grid-cols-3">
         <Card>
-          <Heading level={3}>Add your people</Heading>
+          <Heading level={3} as="h2">Add your people</Heading>
           <p className="mt-2 text-sm text-ink-muted">
             Send a friend request by email. Nothing is shared until they
             accept.
