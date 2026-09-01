@@ -94,7 +94,7 @@ export default function HomePage() {
         </Card>
  
         <Card>
-          <Heading level={3}>Check in</Heading>
+          <Heading level={3} as="h2">Check in</Heading>
           <p className="mt-2 text-sm text-ink-muted">
             One tap tells your friends you are all right. It reaches them
             straight away.
@@ -102,7 +102,7 @@ export default function HomePage() {
         </Card>
  
         <Card>
-          <Heading level={3}>See it was seen</Heading>
+          <Heading level={3} as="h2">See it was seen</Heading>
           <p className="mt-2 text-sm text-ink-muted">
             Friends acknowledge your check-in, and you see the acknowledgement
             appear without refreshing.
