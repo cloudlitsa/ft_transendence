@@ -7,33 +7,9 @@ import { useMessages } from "../lib/MessagesContext.tsx";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
+import { useToast } from "../components/ToastProvider.tsx";
+import { api } from "../lib/api";
 
-// TODO(TRAN-22): TEMPORARY mock data for building the UI before the backend
-// endpoints exist. DELETE this whole block once GET /alerts/:id/messages works.
-// The shape matches lib/chat.ts exactly, so swapping to the real fetch is easy.
-const MOCK_MESSAGES: ChatMessage[] = [
-  {
-    id: "mock-1",
-    content: "Hey Sara, I saw your check-in. You okay?",
-    createdAt: "2026-08-24T15:14:32.000Z",
-    alertId: "mock-alert",
-    sender: { id: "tom-uuid", displayName: "Tom", avatarUrl: null },
-  },
-  {
-    id: "mock-2",
-    content: "Rough day, honestly. Could use a chat.",
-    createdAt: "2026-08-24T15:15:10.000Z",
-    alertId: "mock-alert",
-    sender: { id: "me-uuid", displayName: "Me", avatarUrl: null },
-  },
-  {
-    id: "mock-3",
-    content: "Calling you now.",
-    createdAt: "2026-08-24T15:16:02.000Z",
-    alertId: "mock-alert",
-    sender: { id: "tom-uuid", displayName: "Tom", avatarUrl: null },
-  },
-];
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
@@ -82,10 +58,10 @@ export default function ConversationPage() {
   const { user } = useAuth();      // to tell my messages from everyone else's
 
   const { messages, setMessages, setOpenAlertId } = useMessages();
+  const toast = useToast();
+
   const [loading, setLoading] = useState(true);
   
-      // TODO(TRAN-22): setError is used by the real fetch (currently commented).
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");      // what's currently typed in the box
   const [sending, setSending] = useState(false); // true while a send is in flight
@@ -102,20 +78,10 @@ export default function ConversationPage() {
     let cancelled = false;
     
     setOpenAlertId(id);          // ← tell the socket "this conversation is on screen"
-    
-    // TODO(TRAN-22): remove this mock branch and enable the real fetch below
-    // once the backend exists. Verify the shape with:
-    //   curl -i -b /tmp/me1.txt http://localhost:5173/api/alerts/<id>/messages
-    if (!cancelled) {
-      setMessages(MOCK_MESSAGES);
-      setLoading(false);
-    }
 
-    /* ---- REAL VERSION (uncomment when backend is ready, delete the mock above) ----
     (async () => {
       try {
         const res = await api.get<{ messages: ChatMessage[] }>(`/alerts/${id}/messages`);
-        // TODO(TRAN-22): if backend returns a bare array, change to setMessages(res)
         if (!cancelled) setMessages(res.messages);
       } catch (err) {
         if (!cancelled) setError((err as Error).message);
@@ -123,7 +89,6 @@ export default function ConversationPage() {
         if (!cancelled) setLoading(false);
       }
     })();
-    ------------------------------------------------------------------------------- */
 
   return () => {
     cancelled = true;
@@ -140,36 +105,14 @@ export default function ConversationPage() {
     );
   }
 
-  function send(e: FormEvent) {
+  async function send(e: FormEvent) {
   e.preventDefault();               // stop the browser's default full-page form submit
   const content = draft.trim();     // trim FIRST — matches backend .trim().min(1)
   if (!content || sending) return;  // block empty messages and double-sends
 
   setSending(true);
-
-  // TODO(TRAN-22): mock send — appends locally so the UI works without a backend.
-  // Replace with the REAL VERSION below once POST /alerts/:id/messages exists.
-  const mockMessage: ChatMessage = {
-    id: `local-${Date.now()}`,          // fake unique id; the server will assign the real one
-    content,
-    createdAt: new Date().toISOString(),
-    alertId: id ?? "mock-alert",
-    sender: {
-      id: user?.id ?? "me-uuid",        // my own id → renders as "mine" (right side)
-      displayName: user?.displayName ?? "Me",
-      avatarUrl: user?.avatarUrl ?? null,
-    },
-  };
-  setMessages((cur) => [...cur, mockMessage]);
-  setDraft("");                          // clear the box
-  setSending(false);
-
-  /* ---- REAL VERSION (add `async` to the function, then uncomment) ----
-  // also add at the top:  import { useToast } from "../components/ToastProvider.tsx";
-  // and inside the component:  const toast = useToast();
   try {
     const res = await api.post<{ message: ChatMessage }>(`/alerts/${id}/messages`, { content });
-    // TODO(TRAN-22): if backend returns a bare object, change res.message → res
     setMessages((cur) =>
       cur.some((m) => m.id === res.message.id) ? cur : [...cur, res.message],
     );
@@ -179,7 +122,6 @@ export default function ConversationPage() {
   } finally {
     setSending(false);
   }
-  ------------------------------------------------------------------- */
 }
 
    if (error) {
