@@ -91,7 +91,7 @@ curl -ik -b /tmp/me1.txt -X POST https://localhost/api/friends/request \
 you2 lists pending requests to get the friendship id:
 
 ```bash
-curl -sk -b /tmp/you2.txt https://localhost/api/friends
+curl -sk -b /tmp/you2.txt https://localhost/api/friends/pending
 ```
 
 you2 accepts (paste the id from the previous response):
