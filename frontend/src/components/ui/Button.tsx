@@ -81,7 +81,7 @@ export default function Button({
   return ( // the {...rest} is a "spread" operator that takes all the other props and passes them to the <button> element. This is how we get onClick, type, etc. for free.
     <button
       type="button"                                  // before {...rest} so callers can override
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
+      className={buttonClasses({ variant, size, className })}
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       {...rest}
