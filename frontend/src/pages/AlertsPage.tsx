@@ -350,6 +350,7 @@ export default function AlertsPage() {
             >
               {busyId === myAlert.id ? "Closing…" : "Close this check-in"}
             </button>
+          <Link to={`/alerts/${myAlert.id}`} state={{ alert: myAlert }}>Open conversation →</Link>
           </article>
         )}
       </section>
@@ -398,6 +399,7 @@ export default function AlertsPage() {
                         {busyId === alert.id ? "Sending…" : "I see you"}
                       </button>
                     )}
+                  <Link to={`/alerts/${alert.id}`} state={{ alert }}>Open conversation →</Link>
                   </article>
                 </li>
               );

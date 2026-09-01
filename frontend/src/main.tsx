@@ -8,7 +8,7 @@ import { AuthProvider } from "./lib/AuthContext.tsx";
 
 import { AlertsProvider } from "./lib/AlertsContext.tsx";
 import { PresenceProvider } from "./lib/PresenceContext.tsx";
-
+import { MessagesProvider } from "./lib/MessagesContext.tsx";
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
@@ -18,7 +18,9 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <ToastProvider>
           <PresenceProvider>
             <AlertsProvider>
-              <App />
+              <MessagesProvider>
+                <App />
+              </MessagesProvider>
             </AlertsProvider>
           </PresenceProvider>
         </ToastProvider>

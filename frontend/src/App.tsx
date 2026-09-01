@@ -8,6 +8,7 @@ import UserProfilePage from "./pages/UserProfilePage.tsx";
 import AlertsPage from "./pages/AlertsPage.tsx";
 import TermsPage from "./pages/TermsPage.tsx";
 import PrivacyPage from "./pages/PrivacyPage.tsx";
+import ConversationPage from "./pages/ConversationPage.tsx";
 import Footer from "./components/Footer.tsx";
 
 import OfflineBanner from "./components/OfflineBanner.tsx";
@@ -60,6 +61,7 @@ export default function App() {
             <Route path="/profile" element={<RequireAuth><ProfilePage /></RequireAuth>} />
             <Route path="/profile/:id" element={<RequireAuth><UserProfilePage /></RequireAuth>} />
             <Route path="/alerts" element={<RequireAuth><AlertsPage /></RequireAuth>} />
+            <Route path="/alerts/:id" element={<RequireAuth><ConversationPage /></RequireAuth>} />
             <Route path="/terms" element={<TermsPage />} />
             <Route path="/privacy" element={<PrivacyPage />} />
           </Routes>
