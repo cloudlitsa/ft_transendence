@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../components/ToastProvider.tsx"; // fire notifications on create/update/delete actions
 import { Link } from "react-router-dom";
 import { usePresence } from "../lib/PresenceContext.tsx";
+import Badge from "../components/ui/Badge";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
@@ -181,22 +182,16 @@ export default function FriendsPage() { // the main component for the /friends p
                 height={32}
                 style={{ borderRadius: "50%", objectFit: "cover" }}
               />
-              <span
-                aria-hidden="true"
+              <Badge
+                appearance="dot"
+                tone={onlineIds.has(entry.user.id) ? "success" : "neutral"}
                 title={onlineIds.has(entry.user.id) ? "Online" : "Offline"}
-                style={{
-                  display: "inline-block",
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: onlineIds.has(entry.user.id) ? "#16a34a" : "#9ca3af",
-                }}
-              />
-              <span role="status" className="sr-only">
+                live
+              >
                 {onlineIds.has(entry.user.id)
                   ? `${entry.user.displayName} is online`
                   : `${entry.user.displayName} is offline`}
-              </span>
+              </Badge>
               <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
               ({entry.user.email}){" "}
               <button onClick={() => unfriend(entry.friendshipId)}>Unfriend</button>

@@ -35,6 +35,12 @@ interface BadgeProps {
    */
   live?: boolean;
   className?: string;
+  /**
+   * Native browser tooltip on hover. Sighted mouse users get no benefit from
+   * the aria-label, so a dot whose meaning is carried entirely by colour
+   * should usually have one.
+   */
+  title?: string;
 }
 
 export default function Badge({
@@ -43,23 +49,41 @@ export default function Badge({
   live = false,
   children,
   className = "",
+  title,
 }: BadgeProps) {
-  if (appearance === "dot") {
+      if (appearance === "dot") {
+    const dot = `inline-block size-2 rounded-full ${dotTones[tone]} ${className}`;
+
+    // Live status: two elements, each doing one job.
+    // The dot is decoration — hidden from screen readers, keeps the tooltip.
+    // The sr-only span is the live region: role="status" announces its TEXT
+    // when that text changes, so the words have to be inside it.
+    if (live) {
+      return (
+        <>
+          <span aria-hidden="true" title={title} className={dot} />
+          <span role="status" className="sr-only">{children}</span>
+        </>
+      );
+    }
+
+     // Pill (the default). Renders its children as visible text.
     return (
       <span
-        role={live ? "status" : "img"}
+        role="img"
         aria-label={typeof children === "string" ? children : undefined}
-        className={`inline-block size-2 rounded-full ${dotTones[tone]} ${className}`}
+        title={title}
+        className={dot}
       />
     );
   }
-
   return (
     <span
       role={live ? "status" : undefined}
+      title={title}
       className={
         "inline-flex items-center rounded-full px-2 py-0.5 " +
-        `text-xs font-medium ${pillTones[tone]} ${className}`
+        "text-xs font-medium " + `${pillTones[tone]} ${className}`
       }
     >
       {children}
