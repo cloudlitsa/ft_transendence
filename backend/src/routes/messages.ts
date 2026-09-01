@@ -73,6 +73,7 @@ export async function messagesRoutes(fastify: FastifyInstance) {
       data: { alertId: id, senderId: me, content },
       select: {
         id: true,
+        alertId: true,
         content: true,
         createdAt: true,
         sender: { select: { id: true, displayName: true, avatarUrl: true } },
@@ -118,6 +119,7 @@ export async function messagesRoutes(fastify: FastifyInstance) {
         orderBy: { createdAt: "asc" },
         select: {
         id: true,
+        alertId: true,
         content: true,
         createdAt: true,
         sender: { select: { id: true, displayName: true, avatarUrl: true } },
