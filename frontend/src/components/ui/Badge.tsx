@@ -67,7 +67,7 @@ export default function Badge({
       );
     }
 
-    // Static dot: role="img" ignores its contents, so the name must be a label.
+     // Pill (the default). Renders its children as visible text.
     return (
       <span
         role="img"
@@ -77,4 +77,16 @@ export default function Badge({
       />
     );
   }
+  return (
+    <span
+      role={live ? "status" : undefined}
+      title={title}
+      className={
+        "inline-flex items-center rounded-full px-2 py-0.5 " +
+        "text-xs font-medium " + `${pillTones[tone]} ${className}`
+      }
+    >
+      {children}
+    </span>
+  );
 }
