@@ -11,6 +11,7 @@ import { profileRoutes } from "./routes/profile.js";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import oauthPlugin from "@fastify/oauth2";
+import { oauthRoutes } from "./routes/oauth.js";
 
 const fastify = Fastify({ logger: true });
 
@@ -34,6 +35,9 @@ await fastify.register(fastifyStatic, {
 // Auth endpoints live under /api/auth/*
 await fastify.register(authRoutes, { prefix: "/api/auth" });
 
+//oauth route
+await fastify.register(oauthRoutes, { prefix: "/api/auth" });
+
 // Friends endpoints live under /api/friends/*
 await fastify.register(friendsRoutes, { prefix: "/api/friends" });
 
@@ -50,16 +54,30 @@ await fastify.register(profileRoutes, { prefix: "/api/profile"});
 await fastify.register(oauthPlugin, {
   name: "googleOAuth2",
   scope: ["profile", "email"],
+  discovery: { issuer: "https://accounts.google.com" },
   credentials: {
     client: {
       id: process.env.GOOGLE_CLIENT_ID!,
       secret: process.env.GOOGLE_CLIENT_SECRET!,
     },
-    auth: oauthPlugin.GOOGLE_CONFIGURATION,
   },
   startRedirectPath: "/api/auth/google",
   callbackUri: process.env.GOOGLE_CALLBACK_URL!,
 });
+// await fastify.register(oauthPlugin, {
+//   name: "googleOAuth2",
+//   scope: ["profile", "email"],
+//   credentials: {
+//     client: {
+//       id: process.env.GOOGLE_CLIENT_ID!,
+//       secret: process.env.GOOGLE_CLIENT_SECRET!,
+//     },
+//     discovery: { issuer: "https://accounts.google.com" },
+//     // auth: oauthPlugin.GOOGLE_CONFIGURATION,
+//   },
+//   startRedirectPath: "/api/auth/google",
+//   callbackUri: process.env.GOOGLE_CALLBACK_URL!,
+// });
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
