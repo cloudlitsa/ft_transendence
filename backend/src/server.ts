@@ -10,8 +10,13 @@ import { wsRoutes } from "./routes/ws.js";
 import { profileRoutes } from "./routes/profile.js";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
+import oauthPlugin from "@fastify/oauth2";
 
 const fastify = Fastify({ logger: true });
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_CALLBACK_URL) {
+  throw new Error("Google OAuth env vars are not set. Check .env against .env.example.");
+}
 
 // Cookie support — needed to set/read the httpOnly auth cookie.
 await fastify.register(cookie);
@@ -40,6 +45,21 @@ await fastify.register(gdprRoutes, { prefix: "/api/account" });
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
 
 await fastify.register(profileRoutes, { prefix: "/api/profile"});
+
+//Oauth checks
+await fastify.register(oauthPlugin, {
+  name: "googleOAuth2",
+  scope: ["profile", "email"],
+  credentials: {
+    client: {
+      id: process.env.GOOGLE_CLIENT_ID!,
+      secret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+    auth: oauthPlugin.GOOGLE_CONFIGURATION,
+  },
+  startRedirectPath: "/api/auth/google",
+  callbackUri: process.env.GOOGLE_CALLBACK_URL!,
+});
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
