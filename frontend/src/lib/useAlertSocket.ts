@@ -37,7 +37,9 @@ type ServerMessage =
   | { type: "connected" }
   | { type: "alert:new"; alert: IncomingAlert }
   | { type: "presence"; userId: string; online: boolean }
-  | { type: "message:new"; message: ChatMessage };
+  | { type: "message:new"; message: ChatMessage }
+  | { type: "alert:ack"; alertId: string; acknowledgement: { acknowledgedAt: string; user: AlertSender } };
+  
 // The alertType enum values are database identifiers, not English. Map them
 // once here rather than scattering the wording through components.
 const ALERT_WORDING: Record<IncomingAlert["alertType"], string> = {
@@ -56,7 +58,7 @@ const MAX_ATTEMPTS = 8;
 
 export function useAlertSocket() {
   const { user } = useAuth();
-  const { setFriendsAlerts } = useAlerts();
+  const { setFriendsAlerts, bumpAck } = useAlerts();
   const { setPresence } = usePresence();
   const { addIncomingMessage } = useMessages();
   const toast = useToast();
@@ -138,6 +140,13 @@ export function useAlertSocket() {
           case "presence":
             setPresence(message.userId, message.online);
             break;
+          case "alert:ack": {
+            toastRef.current.success(
+              `${message.acknowledgement.user.displayName} has seen your check-in`,
+            );
+            bumpAck();
+            break;
+          }
         }
       };
 
