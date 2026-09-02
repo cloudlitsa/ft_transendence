@@ -31,12 +31,18 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addIncomingMessage = useCallback((m: ChatMessage) => {
-    // Ignore messages for a conversation the user isn't currently looking at.
-    if (m.alertId !== openAlertIdRef.current) return;
-    // Dedupe by id: the sender receives their own message twice (once as the
-    // POST reply, once as this broadcast). Matching ids collapse to one.
-    setMessages((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, m]));
-  }, []);
+  // A message with no alertId can't be matched against the open conversation,
+  // so it would be dropped by the check below — silently, and indistinguishably
+  // from the legitimate case of a message for a conversation we're not viewing.
+  // Loud, because it always means a bug: a stale backend build was sending
+  // message:new without alertId and live chat quietly stopped working.
+  if (!m.alertId) {
+    console.warn("message:new missing alertId", m);
+    return;
+  }
+  if (m.alertId !== openAlertIdRef.current) return;
+  setMessages((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, m]));
+}, []);
 
   const value = useMemo(
     () => ({ messages, setMessages, setOpenAlertId, addIncomingMessage }),

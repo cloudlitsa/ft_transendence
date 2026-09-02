@@ -8,6 +8,7 @@
 // something arrived, so the list only updated on a manual refresh — which
 // doesn't demonstrate real-time delivery no matter what the backend does.
 
+
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { FriendAlert } from "../pages/AlertsPage.tsx";
@@ -21,25 +22,27 @@ interface AlertsContextValue { // the value passed to the provider and returned 
 // "provider exists but the list is empty". Without it, a component used outside
 // the provider would silently get undefined and fail somewhere confusing.
 const AlertsContext = createContext<AlertsContextValue | null>(null);
-const [ackVersion, setAckVersion] = useState(0);
-
-// Stable identity (empty deps), same reasoning as the memo below: a fresh
-// function every render would defeat the effect deps of every consumer.
-const bumpAck = useCallback(() => setAckVersion((v) => v + 1), []);
 
 export function AlertsProvider({ children }: { children: ReactNode }) { // children is the subtree that can read the context value, i.e. AlertsPage and its descendants
+  // setFriendsAlerts is safe to leave out of the dependency array: React
+  // guarantees the setter from useState is stable for the component's lifetime.
   const [friendsAlerts, setFriendsAlerts] = useState<FriendAlert[]>([]);
+
+  // A counter, not the acknowledgement itself. The socket signals THAT
+  // something changed; AlertsPage re-fetches to find out what.
+  const [ackVersion, setAckVersion] = useState(0);
+
+  // Stable identity (empty deps), same reasoning as the memo below: a fresh
+  // function every render would defeat the effect deps of every consumer.
+  const bumpAck = useCallback(() => setAckVersion((v) => v + 1), []);
 
   // useMemo so this object is the same object between renders unless the list
   // actually changes. A fresh object every render would make every consumer
   // re-render, and any effect depending on it would tear down and rebuild —
   // the same trap that had the WebSocket reconnecting every three seconds.
-  //
-  // setFriendsAlerts is safe to leave out of the dependency array: React
-  // guarantees the setter from useState is stable for the component's lifetime.
   const value = useMemo(
     () => ({ friendsAlerts, setFriendsAlerts, ackVersion, bumpAck }),
-    [friendsAlerts],
+    [friendsAlerts, ackVersion, bumpAck] // setFriendsAlerts is stable, so it doesn't need to be in deps
   );
 
   return (
