@@ -12,10 +12,11 @@
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import type { FriendAlert } from "../pages/AlertsPage.tsx";
-interface AlertsContextValue { // the value passed to the provider and returned by useAlerts()
-  friendsAlerts: FriendAlert[];
-  ackVersion: number; bumpAck: () => void; // the list of friends' active check-ins, as fetched from the server
-  setFriendsAlerts: React.Dispatch<React.SetStateAction<FriendAlert[]>>; // the setter returned by useState, so consumers can update the list when they receive a new alert from the socket
+interface AlertsContextValue {
+  friendsAlerts: FriendAlert[];           // friends' active check-ins, as fetched from the server
+  setFriendsAlerts: React.Dispatch<React.SetStateAction<FriendAlert[]>>;
+  ackVersion: number;                     // bumped when the socket hears alert:ack
+  bumpAck: () => void;                    // called by useAlertSocket, never by a page
 }
 
 // null as the default so useAlerts() can tell "no provider above me" apart from
