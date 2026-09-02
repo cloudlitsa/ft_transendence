@@ -140,7 +140,7 @@ export default function AlertsPage() {
       const message = (err as Error).message;
       setError(message);       // NEW: survives longer than the toast
       toast.error("Couldn't load alerts: " + message);
-    } finally { 
+    } finally {
       setLoading(false);
     }
   }
