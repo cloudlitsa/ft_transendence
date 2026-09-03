@@ -1,8 +1,12 @@
-import { useState, type FormEvent, type ChangeEvent } from "react";
+import { useRef, useState, type FormEvent, type ChangeEvent } from "react";
 import { useAuth } from "../lib/AuthContext";
 import { useToast } from "../components/ToastProvider";
 import { api } from "../lib/api";
 import { useNavigate } from "react-router-dom";
+import Button from "../components/ui/Button";
+import Heading from "../components/ui/Heading";
+import Input from "../components/ui/Input";
+
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 const MAX_BYTES = 2 * 1024 * 1024; // 2 MB — must match the backend limit
@@ -19,6 +23,7 @@ export default function ProfilePage() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // GDPR delete-account confirmation
   const [confirmingDelete, setConfirmingDelete] = useState(false);
@@ -127,89 +132,127 @@ export default function ProfilePage() {
   // What to show: the local preview if picking, else the saved avatar, else default.
   const shownAvatar = preview ?? user.avatarUrl ?? DEFAULT_AVATAR;
 
-  return (
-    <div>
-      <h1>My profile</h1>
-
-      {/* Avatar */}
-      <img
-        src={shownAvatar}
-        alt="Your avatar"
-        width={120}
-        height={120}
-        style={{ borderRadius: "50%", objectFit: "cover", display: "block" }}
-      />
-
-      <div style={{ margin: "1rem 0", display: "flex", gap: "0.5rem", flexWrap: "wrap" }}>
-        <input type="file" accept="image/jpeg,image/png,image/webp" onChange={onPick} />
-        {file && (
-          <button onClick={uploadAvatar} disabled={busy}>
-            {busy ? "Uploading…" : "Upload"}
-          </button>
-        )}
-        {user.avatarUrl && (
-          <button onClick={removeAvatar} disabled={busy}>
-            Remove avatar
-          </button>
-        )}
-      </div>
-
-      {/* Read-only info */}
-      <p><strong>Email:</strong> {user.email}</p>
-
-      {/* Edit display name */}
-      <form onSubmit={saveName} style={{ marginTop: "1rem" }}>
-        <label style={{ display: "block", marginBottom: "0.25rem" }}>
-          Display name
-        </label>
-        <input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={50}
+    return (
+    <main className="flex flex-col gap-8">
+      <Heading level={1}>My profile</Heading>
+ 
+      {/* ---------- Avatar ---------- */}
+      <section aria-label="Avatar" className="flex flex-col gap-4">
+        <img
+          src={shownAvatar}
+          alt="Your avatar"
+          width={120}
+          height={120}
+          className="size-30 rounded-full object-cover"
         />
-        <button type="submit" disabled={savingName} style={{ marginLeft: "0.5rem" }}>
-          {savingName ? "Saving…" : "Save"}
-        </button>
-      </form>
-      {/*  Account (GDPR)  */}
-      <hr style={{ margin: "2rem 0" }} />
-      <section>
-        <h2>Account</h2>
-
-        <button onClick={exportData}>Download my data</button>
-
-        <div style={{ marginTop: "1rem" }}>
-          {!confirmingDelete ? (
-            <button onClick={() => setConfirmingDelete(true)}>
-              Delete account
-            </button>
-          ) : (
-            <form onSubmit={deleteAccount}>
-              <p style={{ color: "#b91c1c" }}>
-                This permanently deletes your account and all your data. Enter
-                your password to confirm.
-              </p>
-              <input
-                type="password"
-                aria-label="Confirm your password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button type="submit" disabled={deleting} style={{ marginLeft: "0.5rem" }}>
-                {deleting ? "Deleting…" : "Confirm delete"}
-              </button>
-              <button
-                type="button"
-                onClick={() => { setConfirmingDelete(false); setPassword(""); }}
-                style={{ marginLeft: "0.5rem" }}
-              >
-                Cancel
-              </button>
-            </form>
-          )}
+ 
+        <div className="flex flex-col gap-3">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-fit"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            Choose a new avatar
+          </Button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={onPick}
+            className="sr-only"
+          />
+ 
+          <div className="flex flex-wrap gap-2">
+            {file && (
+              <Button type="button" onClick={uploadAvatar} loading={busy}>
+                Upload
+              </Button>
+            )}
+            {user.avatarUrl && (
+              <Button type="button" variant="secondary" onClick={removeAvatar} disabled={busy}>
+                Remove avatar
+              </Button>
+            )}
+          </div>
         </div>
       </section>
-    </div>
+ 
+      {/* ---------- Details ---------- */}
+      <section aria-label="Your details" className="flex flex-col gap-4">
+        <p className="text-ink-muted">
+          <span className="font-medium text-ink">Email:</span> {user.email}
+        </p>
+ 
+        {/* Stacked on a phone, side by side from 640px. */}
+        <form onSubmit={saveName} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            <Input
+              label="Display name"
+              type="text"
+              autoComplete="nickname"
+              value={name}
+              maxLength={50}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div>
+            <Button type="submit" loading={savingName}>Save</Button>
+          </div>
+        </form>
+      </section>
+ 
+      {/* ---------- Account (GDPR) ---------- */}
+      {/* border-t replaces the <hr>. A section divider is a border, not an
+          element — Preflight already unstyles <hr> anyway. */}
+      <section aria-label="Account" className="flex flex-col gap-4 border-t border-line pt-8">
+        <Heading level={2}>Account</Heading>
+ 
+        <div>
+          <Button type="button" variant="secondary" onClick={exportData}>
+            Download my data
+          </Button>
+        </div>
+ 
+        {!confirmingDelete ? (
+          // The first click only reveals the confirmation. Nothing has happened
+          // yet, so this is a secondary button — red is saved for the one that
+          // actually does it.
+          <div>
+            <Button type="button" variant="secondary" onClick={() => setConfirmingDelete(true)}>
+              Delete account
+            </Button>
+          </div>
+        ) : (
+          <form onSubmit={deleteAccount} className="flex flex-col gap-3">
+            <p className="text-sm text-danger-700">
+              This permanently deletes your account and all your data. Enter
+              your password to confirm.
+            </p>
+            <Input
+              label="Confirm your password"
+              type="password"
+              autoComplete="current-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <div className="flex flex-wrap gap-2">
+              {/* The one genuinely destructive, irreversible action on the page.
+                  This is what the danger token is reserved for. */}
+              <Button type="submit" variant="danger" loading={deleting}>
+                Confirm delete
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setConfirmingDelete(false); setPassword(""); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        )}
+      </section>
+    </main>
   );
 }
