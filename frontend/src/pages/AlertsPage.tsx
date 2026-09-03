@@ -102,7 +102,7 @@ function formatWhen(iso: string): string {
 export default function AlertsPage() {
   // ---------- State ----------
   const [myAlert, setMyAlert] = useState<MyAlert | null>(null);
-  const { friendsAlerts, setFriendsAlerts } = useAlerts();
+  const { friendsAlerts, setFriendsAlerts, ackVersion } = useAlerts();
   const [friendCount, setFriendCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
@@ -150,6 +150,15 @@ export default function AlertsPage() {
   }, []); // empty deps: run once on mount. See DEVELOPMENT.md on why this
   // array matters — a missing or wrong one is how the WebSocket effect ended
   // up rebuilding its socket every three seconds.
+
+  // The socket received alert:ack — which only the sender ever gets — and bumped
+  // the counter. Re-fetch rather than patching myAlert from the socket payload:
+  // the server stays the single source of truth, same rule as everywhere else in
+  // this file. The counter is a signal that something changed, not the change.
+  useEffect(() => {
+    if (ackVersion > 0) refresh();
+  }, [ackVersion]); // refresh omitted deliberately: it's redefined every render,
+  // so including it would re-run this on every render
 
   // ---------- Actions ----------
   async function sendAlert(e: FormEvent) {
