@@ -137,7 +137,7 @@ export default function ProfilePage() {
       <Heading level={1}>My profile</Heading>
  
       {/* ---------- Avatar ---------- */}
-      <section aria-label="Avatar" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <img
           src={shownAvatar}
           alt="Your avatar"
@@ -160,7 +160,9 @@ export default function ProfilePage() {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             onChange={onPick}
+            tabIndex={-1}
             className="sr-only"
+            aria-hidden="true"
           />
  
           <div className="flex flex-wrap gap-2">
@@ -176,12 +178,12 @@ export default function ProfilePage() {
             )}
           </div>
         </div>
-      </section>
+      </div>
  
       {/* ---------- Details ---------- */}
-      <section aria-label="Your details" className="flex flex-col gap-4">
+      <div className="flex flex-col gap-4">
         <p className="text-ink-muted">
-          <span className="font-medium text-ink">Email:</span> {user.email}
+          <span className="font-bold text-ink">Email:</span> {user.email}
         </p>
  
         {/* Stacked on a phone, side by side from 640px. */}
@@ -200,7 +202,7 @@ export default function ProfilePage() {
             <Button type="submit" loading={savingName}>Save</Button>
           </div>
         </form>
-      </section>
+      </div>
  
       {/* ---------- Account (GDPR) ---------- */}
       {/* border-t replaces the <hr>. A section divider is a border, not an
