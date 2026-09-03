@@ -151,6 +151,7 @@ export default function ProfilePage() {
             type="button"
             variant="secondary"
             className="w-fit"
+            disabled={busy}
             onClick={() => fileInputRef.current?.click()}
           >
             Choose a new avatar
