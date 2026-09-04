@@ -4,6 +4,11 @@ import { useToast } from "../components/ToastProvider.tsx"; // fire notification
 import { Link } from "react-router-dom";
 import { usePresence } from "../lib/PresenceContext.tsx";
 import Badge from "../components/ui/Badge";
+import Button from "../components/ui/Button";
+import Card from "../components/ui/Card";
+import Heading from "../components/ui/Heading";
+import Input from "../components/ui/Input";
+import Spinner from "../components/ui/Spinner";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
@@ -25,6 +30,11 @@ interface PendingResponse { // the backend sends this shape from /friends/pendin
   incoming: FriendEntry[];
   outgoing: FriendEntry[];
 }
+
+// Shared bits of every row, so the three lists can't drift apart.
+// size-8 = 2rem = 32px, matching the old width/height attributes.
+const avatarClass = "size-8 shrink-0 rounded-full object-cover";
+const rowClass = "flex flex-wrap items-center gap-3";
 
 export default function FriendsPage() { // the main component for the /friends page. React calls this function to render the page. It returns JSX, which looks like HTML but can include dynamic values and components.
   // ---------- State: everything the page needs to remember ----------
@@ -107,98 +117,152 @@ export default function FriendsPage() { // the main component for the /friends p
   }
 
   // ---------- Render ---------- It's JSX, which looks like HTML but can include dynamic values and components. React transforms this into JavaScript calls to create the DOM elements.
-  if (loading) return <p>Loading ...</p>;
-
+    if (loading) {
+    return (
+      <main>
+        <Heading level={1}>Friends</Heading>
+        <p role="status" aria-live="polite" className="mt-6 flex items-center gap-2 text-ink-muted">
+          <Spinner /> Loading…
+        </p>
+      </main>
+    );
+  }
+ 
   return (
-    <div>
-      <h1>Friends</h1>
-
-      <section>
-        <h2>Add a friend</h2>
-        <form onSubmit={sendRequest}>
-          <input
-            type="email"
-            aria-label="Friend's email address"
-            placeholder="friend@example.com"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)} // update state when the user types in the input. React re-renders the page with the new value. e is the event object, which has a target property that is the input element. e.target.value is the current value of the input.
-            required // HTML5 validation: the form won't submit if this input is empty or not a valid email address.
-          />
-          <button type="submit" >Send request</button>
+    <main className="flex flex-col gap-8">
+      <Heading level={1}>Friends</Heading>
+ 
+      {/* ---------- Add a friend ---------- */}
+      <section aria-label="Add a friend" className="flex flex-col gap-3">
+        <Heading level={2}>Add a friend</Heading>
+ 
+        {/* Stacked on a phone, side by side from 640px. items-end lines the
+            button up with the input box rather than with the label above it. */}
+        <form onSubmit={sendRequest} className="flex flex-col gap-3 sm:flex-row sm:items-end">
+          <div className="flex-1">
+            {/* A visible label now, not an aria-label. Sighted users get to
+                see what the field is for too. */}
+            <Input
+              label="Friend's email address"
+              type="email"
+              autoComplete="email"
+              placeholder="friend@example.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+            />
+          </div>
+          <div>
+            <Button type="submit">Send request</Button>
+          </div>
         </form>
       </section>
-
-      <section>
-        <h2>Incoming requests</h2>
-        {incoming.length === 0 && <p>None</p>}
-        <ul>
-          {incoming.map((entry) => (
-            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <img
-                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
-                alt=""
-                width={32}
-                height={32}
-                style={{ borderRadius: "50%", objectFit: "cover" }}
-              />
-              {entry.user.displayName} ({entry.user.email}){" "}
-              <button onClick={() => accept(entry.friendshipId)}>Accept</button>{" "}
-              <button onClick={() => declineOrCancel(entry.friendshipId)}>Decline</button>
-            </li>
-          ))}
-        </ul>
+ 
+      {/* ---------- Incoming ---------- */}
+      <section aria-label="Incoming requests" className="flex flex-col gap-3">
+        <Heading level={2}>Incoming requests</Heading>
+        {incoming.length === 0 ? (
+          <p className="text-ink-muted">None</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {incoming.map((entry) => (
+              <li key={entry.friendshipId}>
+                <Card className={rowClass}>
+                  <img src={entry.user.avatarUrl ?? DEFAULT_AVATAR} alt="" width={32} height={32} className={avatarClass} />
+                  <div className="min-w-0">
+                    <p className="text-ink">{entry.user.displayName}</p>
+                    <p className="truncate text-sm text-ink-muted">{entry.user.email}</p>
+                  </div>
+                  {/* ml-auto pushes the buttons to the right on a wide row.
+                      On a narrow one, flex-wrap drops them to their own line. */}
+                  <div className="ml-auto flex gap-2">
+                    <Button type="button" size="sm" onClick={() => accept(entry.friendshipId)}>
+                      Accept
+                    </Button>
+                    <Button type="button" size="sm" variant="secondary" onClick={() => declineOrCancel(entry.friendshipId)}>
+                      Decline
+                    </Button>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-
-      <section>
-        <h2>Outgoing requests</h2>
-        {outgoing.length === 0 && <p>None</p>}
-        <ul>
-          {outgoing.map((entry) => (
-            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <img
-                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
-                alt=""
-                width={32}
-                height={32}
-                style={{ borderRadius: "50%", objectFit: "cover" }}
-              />
-              {entry.user.displayName} ({entry.user.email}){" "}
-              <button onClick={() => declineOrCancel(entry.friendshipId)}>Cancel</button>
-            </li>
-          ))}
-        </ul>
+ 
+      {/* ---------- Outgoing ---------- */}
+      <section aria-label="Outgoing requests" className="flex flex-col gap-3">
+        <Heading level={2}>Outgoing requests</Heading>
+        {outgoing.length === 0 ? (
+          <p className="text-ink-muted">None</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {outgoing.map((entry) => (
+              <li key={entry.friendshipId}>
+                <Card className={rowClass}>
+                  <img src={entry.user.avatarUrl ?? DEFAULT_AVATAR} alt="" width={32} height={32} className={avatarClass} />
+                  <div className="min-w-0">
+                    <p className="text-ink">{entry.user.displayName}</p>
+                    <p className="truncate text-sm text-ink-muted">{entry.user.email}</p>
+                  </div>
+                  <div className="ml-auto">
+                    <Button type="button" size="sm" variant="secondary" onClick={() => declineOrCancel(entry.friendshipId)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
-
-      <section>
-        <h2>My friends</h2>
-        {friends.length === 0 && <p>No friends</p>}
-        <ul>
-          {friends.map((entry) => (
-            <li key={entry.friendshipId} style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
-              <img
-                src={entry.user.avatarUrl ?? DEFAULT_AVATAR}
-                alt=""
-                width={32}
-                height={32}
-                style={{ borderRadius: "50%", objectFit: "cover" }}
-              />
-              <Badge
-                appearance="dot"
-                tone={onlineIds.has(entry.user.id) ? "success" : "neutral"}
-                title={onlineIds.has(entry.user.id) ? "Online" : "Offline"}
-                live
-              >
-                {onlineIds.has(entry.user.id)
-                  ? `${entry.user.displayName} is online`
-                  : `${entry.user.displayName} is offline`}
-              </Badge>
-              <Link to={`/profile/${entry.user.id}`}>{entry.user.displayName}</Link>{" "}
-              ({entry.user.email}){" "}
-              <button onClick={() => unfriend(entry.friendshipId)}>Unfriend</button>
-            </li>
-          ))}
-        </ul>
+ 
+      {/* ---------- Friends ---------- */}
+      <section aria-label="My friends" className="flex flex-col gap-3">
+        <Heading level={2}>My friends</Heading>
+        {friends.length === 0 ? (
+          <p className="text-ink-muted">No friends yet.</p>
+        ) : (
+          <ul className="flex flex-col gap-3">
+            {friends.map((entry) => {
+              const online = onlineIds.has(entry.user.id);
+              return (
+                <li key={entry.friendshipId}>
+                  <Card className={rowClass}>
+                    <img src={entry.user.avatarUrl ?? DEFAULT_AVATAR} alt="" width={32} height={32} className={avatarClass} />
+                    <Badge
+                      appearance="dot"
+                      tone={online ? "success" : "neutral"}
+                      title={online ? "Online" : "Offline"}
+                      live
+                    >
+                      {online
+                        ? `${entry.user.displayName} is online`
+                        : `${entry.user.displayName} is offline`}
+                    </Badge>
+                    <div className="min-w-0">
+                      <Link to={`/profile/${entry.user.id}`} className="text-brand-600 underline">
+                        {entry.user.displayName}
+                      </Link>
+                      <p className="truncate text-sm text-ink-muted">{entry.user.email}</p>
+                    </div>
+                    {/* Secondary, not danger. Red on every row would make the
+                        friends list read like a list of errors, and unfriending
+                        is undone by sending a new request. Red is kept for
+                        things that can't be undone — see ProfilePage. */}
+                    <div className="ml-auto">
+                      <Button type="button" size="sm" variant="secondary" onClick={() => unfriend(entry.friendshipId)}>
+                        Unfriend
+                      </Button>
+                    </div>
+                  </Card>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </section>
-    </div>
+    </main>
   );
 }
+ 

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { api } from "../lib/api";
+import Heading from "../components/ui/Heading";
+import Badge from "../components/ui/Badge";
+import Spinner from "../components/ui/Spinner";
 
 const DEFAULT_AVATAR = "/default-avatar.png";
 
@@ -29,28 +32,56 @@ export default function UserProfilePage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [id]);
-  if (loading) return <p>Loading…</p>;
-  if (error) return <p>{error} — <Link to="/friends">Back to friends</Link></p>;
+
+  if (loading) {
+    return (
+      <main>
+        <p role="status" aria-live="polite" className="flex items-center gap-2 text-ink-muted">
+          <Spinner /> Loading…
+        </p>
+      </main>
+    );
+  }
+ 
+  if (error) {
+    return (
+      <main className="flex flex-col gap-3">
+        <p role="alert" className="text-ink">{error}</p>
+        <Link to="/friends" className="text-brand-600 underline">Back to friends</Link>
+      </main>
+    );
+  }
+ 
   if (!user) return null;
-
+ 
   return (
-    <div>
-      <h1>{user.displayName}</h1>
-
+    <main className="flex flex-col gap-4">
+      <Heading level={1}>{user.displayName}</Heading>
+ 
+      {/* size-30 is 7.5rem = 120px, matching the old width/height attributes.
+          Keeping those attributes too: they reserve space before the image
+          loads, so the page doesn't jump. */}
       <img
         src={user.avatarUrl ?? DEFAULT_AVATAR}
         alt={`${user.displayName}'s avatar`}
         width={120}
         height={120}
-        style={{ borderRadius: "50%", objectFit: "cover", display: "block" }}
+        className="size-30 rounded-full object-cover"
       />
-
-      {/* Show status only when the backend provides it */}
+ 
+      {/* Same Badge the friends list uses for the same fact, so the two pages
+          can't disagree about what "online" looks like. Replaces the emoji,
+          which a screen reader read out as "green circle". */}
       {user.online !== undefined && (
-        <p>{user.online ? "🟢 Online" : "⚪ Offline"}</p>
+        <div>
+          <Badge tone={user.online ? "success" : "neutral"}>
+            {user.online ? "Online" : "Offline"}
+          </Badge>
+        </div>
       )}
-
-      <Link to="/friends">Back to friends</Link>
-    </div>
+ 
+      <Link to="/friends" className="text-brand-600 underline">Back to friends</Link>
+    </main>
   );
 }
+ 
