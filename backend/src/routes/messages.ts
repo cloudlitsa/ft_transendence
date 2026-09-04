@@ -28,6 +28,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 import { getFriendIds } from "../lib/friendships.js";
+import { canAccessAlert } from "../lib/alertAccess.js";
 import { broadcastToUsers } from "../lib/wsRegistry.js";
 import {
   ATTACHMENTS_DIR,
@@ -37,32 +38,6 @@ import {
   storeFile,
   type StoredFile,
 } from "../lib/fileStorage.js";
-
-
-// ---------- Access check (shared by both routes) ----------
-
-// The alert must exist, and `me` must be the sender OR an accepted friend
-// of the sender. Status is deliberately NOT checked. Returns the sender's
-// id on success; null means "refuse with 404".
-
-async function canAccessAlert(alertId: string, me: string): Promise<string | null> {
-  const alert = await prisma.alert.findUnique({
-    where: { id: alertId },
-    select: { senderId: true },
-  });
-  if (!alert) return null;
-
-  if (alert.senderId === me) return alert.senderId;
-
-  const [a, b] = me < alert.senderId ? [me, alert.senderId] : [alert.senderId, me];
-  const friendship = await prisma.friendship.findUnique({
-    where: { userIdA_userIdB: { userIdA: a, userIdB: b } },
-    select: { status: true },
-  });
-  if (!friendship || friendship.status !== "accepted") return null;
-
-  return alert.senderId;
-}
 
 
 // ---------- Input validation ----------

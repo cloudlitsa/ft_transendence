@@ -8,6 +8,7 @@ import { messagesRoutes } from "./routes/messages.js";
 import { gdprRoutes } from "./routes/gdpr.js";
 import { wsRoutes } from "./routes/ws.js";
 import { profileRoutes } from "./routes/profile.js";
+import { attachmentsRoutes } from "./routes/attachments.js";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 
@@ -40,6 +41,9 @@ await fastify.register(gdprRoutes, { prefix: "/api/account" });
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
 
 await fastify.register(profileRoutes, { prefix: "/api/profile"});
+
+// Attachment download and delete live under /api/attachments/*
+await fastify.register(attachmentsRoutes, { prefix: "/api/attachments" });
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {
