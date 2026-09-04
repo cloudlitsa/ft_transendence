@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, type FormEvent } from "react";
+import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "react";
 import { useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
@@ -8,11 +8,28 @@ import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
 import { useToast } from "../components/ToastProvider.tsx";
-import { api } from "../lib/api";
+import { api, uploadWithProgress } from "../lib/api";
 
 
 function formatWhen(iso: string): string {
   return new Date(iso).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+}
+
+
+// Client-side upload rules. These MIRROR the server (lib/fileStorage.ts) and
+// do not replace it: file.type comes from the operating system's guess at the
+// extension, and anyone can skip this page entirely with curl. The real check
+// is the magic-byte test in storeFile, which answers 415.
+//
+// The job here is only to spare someone a slow upload of a file that was
+// always going to be refused.
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
+
+function formatSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 
@@ -67,10 +84,39 @@ export default function ConversationPage() {
   const [sending, setSending] = useState(false); // true while a send is in flight
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // The chosen image, before it is sent.
+  //
+  //   file      the File object itself, handed to FormData on submit
+  //   preview   a blob: URL pointing at it, so it can be shown without upload
+  //   progress  0-100 while an upload is in flight, null the rest of the time
+  //   fileRef   a handle on the <input>, because a file input cannot be
+  //             controlled by React state the way a text input can
+  const [file, setFile] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   // Auto-scroll to the newest message whenever the list changes.
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  // Build a preview URL for the chosen file, and release it afterwards.
+  //
+  // createObjectURL hands back a "blob:" URL the browser keeps alive until the
+  // page unloads or the URL is revoked. Choosing several images in a row
+  // without revoking pins every one of them in memory, so the cleanup function
+  // returned below matters — React runs it before the next effect and on
+  // unmount.
+  useEffect(() => {
+    if (!file) {
+      setPreview(null);
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    setPreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
 
   // Load the conversation's messages.
   useEffect(() => {
@@ -105,6 +151,31 @@ export default function ConversationPage() {
     );
   }
 
+  // Forget the chosen file. Clearing fileRef.current.value matters: a file
+  // input is not controlled by React, and without the reset, picking the SAME
+  // file again fires no change event and appears to do nothing.
+  function clearFile() {
+    setFile(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function pickFile(e: ChangeEvent<HTMLInputElement>) {
+    const chosen = e.target.files?.[0] ?? null;
+    if (!chosen) return;
+
+    if (!ACCEPTED_TYPES.includes(chosen.type)) {
+      toast.error("Images only — jpeg, png or webp.");
+      clearFile();
+      return;
+    }
+    if (chosen.size > MAX_UPLOAD_BYTES) {
+      toast.error(`That image is ${formatSize(chosen.size)}. The limit is 5 MB.`);
+      clearFile();
+      return;
+    }
+    setFile(chosen);
+  }
+
   async function send(e: FormEvent) {
   e.preventDefault();               // stop the browser's default full-page form submit
   const content = draft.trim();     // trim FIRST — matches backend .trim().min(1)
@@ -112,15 +183,38 @@ export default function ConversationPage() {
 
   setSending(true);
   try {
-    const res = await api.post<{ message: ChatMessage }>(`/alerts/${id}/messages`, { content });
+    // Two transports, one endpoint — mirroring the server's isMultipart()
+    // branch. With a file we need progress events, which only XHR provides.
+    let res: { message: ChatMessage };
+
+    if (file) {
+      const fd = new FormData();
+      // These two names must match the backend exactly: "content" is read as
+      // a field, "file" as the upload. Any other name is ignored.
+      fd.append("content", content);
+      fd.append("file", file);
+
+      setProgress(0);   // show the bar immediately, before the first event
+      res = await uploadWithProgress<{ message: ChatMessage }>(
+        `/alerts/${id}/messages`,
+        fd,
+        setProgress,
+      );
+    } else {
+      res = await api.post<{ message: ChatMessage }>(`/alerts/${id}/messages`, { content });
+    }
+
     setMessages((cur) =>
       cur.some((m) => m.id === res.message.id) ? cur : [...cur, res.message],
     );
     setDraft("");
+    clearFile();
   } catch (err) {
-    toast.error((err as Error).message);   // 400 too long, 404 not allowed, etc.
+    // 400 too long, 404 not allowed, 413 too large, 415 not really an image.
+    toast.error((err as Error).message);
   } finally {
     setSending(false);
+    setProgress(null);
   }
 }
 
@@ -183,21 +277,89 @@ return (
       <div ref={bottomRef} />
     </ul>
 
-    <form onSubmit={send} className="flex gap-2">
-      <label htmlFor="msg" className="sr-only">Type a message</label>
-      <textarea
-        id="msg"
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        maxLength={2000}
-        rows={1}
-        placeholder="Type a message…"
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(e); }
-        }}
-        className="flex-1 border border-line rounded-md px-3 py-2 bg-surface-sunken resize-none"
-      />
-      <Button type="submit" loading={sending} disabled={!draft.trim()}>Send</Button>
+    <form onSubmit={send} className="flex flex-col gap-2">
+      {/* Chosen image, before sending. Only rendered once the preview URL
+          exists, so there is never a moment with a broken <img>. */}
+      {preview && (
+        <div className="flex items-center gap-3 rounded-md border border-line bg-surface-sunken p-2">
+          <img src={preview} alt="" className="size-14 rounded object-cover" />
+          <div className="min-w-0 flex-1">
+            {/* truncate + min-w-0: a long filename must not widen the row */}
+            <p className="truncate text-sm text-ink">{file?.name}</p>
+            <p className="text-xs text-ink-muted">{file ? formatSize(file.size) : null}</p>
+          </div>
+          <Button type="button" variant="secondary" size="sm" onClick={clearFile} disabled={sending}>
+            Remove
+          </Button>
+        </div>
+      )}
+
+      {/* Upload progress. progress is null except while a file is in flight,
+          so this whole block disappears for text-only messages. */}
+      {progress !== null && (
+        <div>
+          <div
+            className="h-1.5 w-full overflow-hidden rounded-full bg-surface-sunken"
+            role="progressbar"
+            aria-valuenow={progress}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label="Upload progress"
+          >
+            <div
+              className="h-full bg-brand-500 transition-[width] duration-150"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {/* Screen readers get the number; sighted users get the bar. */}
+          <p className="sr-only" aria-live="polite">Uploading, {progress} percent</p>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        {/* The input is visually hidden but still focusable, so keyboard users
+            reach it and the label lights up via peer-focus-visible. Styling
+            the <input type="file"> itself is not portable across browsers. */}
+        <input
+          id="file"
+          ref={fileRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          onChange={pickFile}
+          disabled={sending}
+          className="peer sr-only"
+        />
+        <label
+          htmlFor="file"
+          title="Attach an image"
+          className={
+            "inline-flex shrink-0 cursor-pointer items-center justify-center rounded-md " +
+            "border border-line bg-surface px-3 text-ink hover:bg-surface-sunken " +
+            "peer-focus-visible:ring-2 peer-focus-visible:ring-brand-500 peer-focus-visible:ring-offset-2 " +
+            "peer-disabled:cursor-not-allowed peer-disabled:opacity-50"
+          }
+        >
+          <span aria-hidden="true">📎</span>
+          <span className="sr-only">Attach an image</span>
+        </label>
+
+        <label htmlFor="msg" className="sr-only">Type a message</label>
+        <textarea
+          id="msg"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          maxLength={2000}
+          rows={1}
+          placeholder="Type a message…"
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(e); }
+          }}
+          className="flex-1 border border-line rounded-md px-3 py-2 bg-surface-sunken resize-none"
+        />
+        {/* Still disabled on an empty caption even when an image is chosen:
+            the backend requires content, so an image never travels alone. */}
+        <Button type="submit" loading={sending} disabled={!draft.trim()}>Send</Button>
+      </div>
     </form>
   </main>
 );
