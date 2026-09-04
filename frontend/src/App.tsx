@@ -76,7 +76,7 @@ export default function App() {
         {/* NavLink adds aria-current="page" on the matching route by itself,
             so a screen reader announces which page you are on. The links
             navigate; Log out performs an action, so it's a Button. */}
-        <nav className="flex flex-wrap items-center gap-4 mb-8">
+        <nav aria-label="Main" className="flex flex-wrap items-center gap-4 mb-8">
           {/* `end` matters: without it "/" is a prefix of every route, so Home
               would be marked active on every page in the app. */}
           <NavLink to="/" end className={linkClass}>Home</NavLink>
