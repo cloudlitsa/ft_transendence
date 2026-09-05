@@ -2,11 +2,13 @@ import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "r
 import { useParams, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
-import type { ChatMessage, ChatSender  } from "../lib/chat";
+import type { ChatAttachment, ChatMessage, ChatSender  } from "../lib/chat";
+import { attachmentUrl } from "../lib/chat";
 import { useMessages } from "../lib/MessagesContext.tsx";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Badge from "../components/ui/Badge";
+import Icon from "../components/ui/Icon";
 import { useToast } from "../components/ToastProvider.tsx";
 import { api, uploadWithProgress } from "../lib/api";
 
@@ -46,6 +48,115 @@ function Avatar({ user }: { user: ChatSender }) {
   );
 }
 
+// One attachment inside a message bubble.
+//
+// The <img src> is a ROUTE, not a static file. Every one of these tags fires a
+// real request that runs canAccessAlert on the server, and the session cookie
+// rides along automatically because it is same-origin — which is why an <img>
+// can point at an authenticated endpoint at all without any JavaScript.
+//
+// `mine` only picks colours: the bubble behind this is brand-blue for your own
+// messages and a pale surface for everyone else's, so the placeholder needs
+// two different treatments to stay readable.
+//
+// `onDelete` is passed only for your own attachments, so its presence is what
+// decides whether the remove control is drawn. That is a convenience, not the
+// security boundary: the backend answers 403 to anyone who is not the message
+// author, whether or not a button was ever rendered.
+function Attachment({
+  attachment,
+  mine,
+  onDelete,
+}: {
+  attachment: ChatAttachment;
+  mine: boolean;
+  onDelete?: () => Promise<void>;
+}) {
+  const [removing, setRemoving] = useState(false);
+
+  async function handleDelete() {
+    if (!onDelete) return;
+    setRemoving(true);
+    try {
+      await onDelete();
+    } finally {
+      // Safe even though the successful path re-renders this into the
+      // placeholder below: it is the same component instance either way.
+      setRemoving(false);
+    }
+  }
+
+  // The sender removed it. The row survives precisely so this can be shown —
+  // a hard delete would leave a bubble indistinguishable from one that never
+  // had an image, and the conversation would quietly rewrite itself.
+  if (attachment.deletedAt) {
+    return (
+      <p
+        className={
+          "rounded-lg border border-dashed px-3 py-2 text-xs italic " +
+          (mine ? "border-white/40 text-white/80" : "border-line text-ink-muted")
+        }
+      >
+        Image removed
+      </p>
+    );
+  }
+
+  const href = attachmentUrl(attachment);
+
+  if (attachment.mimeType.startsWith("image/")) {
+    return (
+      <div className="relative">
+        {/* Wrapped in a link so the full-size image is one click away — the
+            thumbnail is capped at max-h-72 so a tall photo can't take over
+            the whole conversation. */}
+        <a href={href} target="_blank" rel="noreferrer" className="block">
+          <img
+            src={href}
+            // The caption sits right beside this in the bubble and is already
+            // read aloud, so the filename is the useful addition here: it
+            // announces that an image is present and names it, without
+            // repeating the caption.
+            alt={attachment.originalName}
+            loading="lazy"
+            className="max-h-72 w-auto max-w-full rounded-lg"
+          />
+        </a>
+
+        {onDelete && (
+          // Always visible, never hover-only: a touch device has no hover, so
+          // a control that appears on :hover is a control phone users cannot
+          // find. Sits on the image rather than below it so the bubble does
+          // not grow taller for everyone else.
+          <button
+            type="button"
+            onClick={handleDelete}
+            disabled={removing}
+            aria-label={`Remove ${attachment.originalName}`}
+            className={
+              "absolute right-1.5 top-1.5 grid size-7 place-items-center rounded-full " +
+              "bg-ink/60 text-white backdrop-blur-sm transition-colors hover:bg-ink/80 " +
+              "focus:outline-none focus-visible:ring-2 focus-visible:ring-white " +
+              "disabled:opacity-50 disabled:cursor-not-allowed"
+            }
+          >
+            {removing ? <Spinner /> : <Icon name="x" className="size-4" />}
+          </button>
+        )}
+      </div>
+    );
+  }
+
+  // Not an image. The backend allowlist is images-only today, so this is a
+  // fallback rather than a live path — but it means the day a PDF is allowed,
+  // it renders as something usable instead of a broken <img>.
+  return (
+    <a href={href} target="_blank" rel="noreferrer" className="text-sm underline">
+      {attachment.originalName} ({formatSize(attachment.size)})
+    </a>
+  );
+}
+
 interface HeaderAlert {
   note?: string | null;
   status?: string;
@@ -74,7 +185,7 @@ export default function ConversationPage() {
 
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const { messages, setMessages, setOpenAlertId } = useMessages();
+  const { messages, setMessages, setOpenAlertId, removeAttachment } = useMessages();
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -149,6 +260,28 @@ export default function ConversationPage() {
         <p role="status" aria-live="polite"><Spinner /> Loading conversation…</p>
       </main>
     );
+  }
+
+  // Remove one of your own attachments.
+  //
+  // Irreversible and one stray tap away on a phone, so it asks first. The
+  // message text stays either way — only the image goes.
+  async function deleteAttachment(attachment: ChatAttachment, alertId: string) {
+    if (!window.confirm(`Remove ${attachment.originalName}? This can't be undone.`)) {
+      return;
+    }
+    try {
+      await api.delete(`/attachments/${attachment.id}`);
+      // Update local state directly rather than waiting for the socket. The
+      // broadcast does reach this tab too — the backend deliberately doesn't
+      // skip the deleter, so other devices get it — but marking here means the
+      // image goes immediately even if the socket is down. removeAttachment
+      // ignores a second arrival, so the duplicate costs nothing.
+      removeAttachment({ id: attachment.id, alertId });
+    } catch (err) {
+      // 403 if it isn't yours, 404 if it vanished, network errors otherwise.
+      toast.error((err as Error).message);
+    }
   }
 
   // Forget the chosen file. Clearing fileRef.current.value matters: a file
@@ -262,11 +395,25 @@ return (
               )}
               <div
                 className={
-                  mine
+                  "flex flex-col gap-2 " +
+                  (mine
                     ? "bg-brand-500 text-white rounded-2xl rounded-br-sm px-3 py-2"
-                    : "bg-surface-sunken border border-line rounded-2xl rounded-bl-sm px-3 py-2"
+                    : "bg-surface-sunken border border-line rounded-2xl rounded-bl-sm px-3 py-2")
                 }
               >
+                {/* Images first, caption under them — the usual chat reading
+                    order. attachments is always an array, [] for text-only
+                    messages, so no null check is needed. */}
+                {m.attachments.map((a) => (
+                  <Attachment
+                    key={a.id}
+                    attachment={a}
+                    mine={mine}
+                    // Only your own attachments get a delete handler, and so
+                    // only they get the control.
+                    onDelete={mine ? () => deleteAttachment(a, m.alertId) : undefined}
+                  />
+                ))}
                 {m.content}
               </div>
               <p className="text-xs text-ink-muted mt-0.5">{formatWhen(m.createdAt)}</p>

@@ -42,3 +42,14 @@ export interface ChatMessage {
    */
   attachments: ChatAttachment[];
 }
+
+/**
+ * Where to fetch an attachment's bytes.
+ *
+ * This is a ROUTE, not a static file path. Every request to it runs the same
+ * access check as the conversation itself, so the URL is useless to anyone
+ * outside the alert's circle. Kept here so the shape lives in one place.
+ */
+export function attachmentUrl(attachment: ChatAttachment): string {
+  return `/api/attachments/${attachment.id}`;
+}
