@@ -17,6 +17,7 @@ import { authedUserId, requireAuth } from "../lib/requireAuth.js";
 import { isOnline } from "../lib/wsRegistry.js";
 
 import {
+  IMAGE_TYPES,
   MAX_AVATAR_BYTES,
   PUBLIC_UPLOADS_DIR,
   removeFile,
@@ -161,6 +162,9 @@ export async function profileRoutes(fastify:FastifyInstance) {
             mimeType: data.mimetype,
             dir: PUBLIC_UPLOADS_DIR,
             maxBytes: MAX_AVATAR_BYTES,
+            // Images only. An avatar is rendered in an <img>, so a PDF here
+            // would be a permanently broken image.
+            accept: IMAGE_TYPES,
         });
         if (!stored.ok) {
             return reply.code(stored.status).send({ error: stored.error });

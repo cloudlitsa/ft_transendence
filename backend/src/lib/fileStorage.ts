@@ -54,9 +54,23 @@ export const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
 // `ext` comes from this table, never from the client's filename, so a name
 // like "photo.jpg.sh" has no say in what gets written to disk.
 //
-// PDFs are absent on purpose. A PDF displayed inline can run script in some
-// viewers, so allowing them is not one more line here — it also needs a
-// decision about forcing them to download.
+// PDFs are allowed, but the download route serves them as an attachment
+// rather than inline. A PDF rendered in the browser's viewer runs on OUR
+// origin, and some viewers execute JavaScript embedded in the file; forcing a
+// download keeps user-supplied documents out of that context. Images have to
+// stay inline to render in an <img>, and carry no equivalent risk.
+
+// Which types each caller accepts. The map below is everything the engine
+// knows how to verify; these lists are what a given route is willing to take.
+// Being in the map is necessary but not sufficient, so chat can take PDFs
+// without avatars doing so.
+//
+// They are separate because the two uploads mean different things: an avatar
+// is rendered in an <img>, so a PDF avatar would be a permanently broken
+// image. One shared list would have let PDFs in there the moment they were
+// added for chat.
+export const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"] as const;
+export const ATTACHMENT_TYPES = [...IMAGE_TYPES, "application/pdf"] as const;
 
 const ALLOWED_TYPES = new Map<string, { ext: string; magic: (b: Buffer) => boolean }>([
   [
@@ -72,6 +86,14 @@ const ALLOWED_TYPES = new Map<string, { ext: string; magic: (b: Buffer) => boole
         b
           .subarray(0, 8)
           .equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])),
+    },
+  ],
+  [
+    "application/pdf",
+    {
+      ext: "pdf",
+      // "%PDF-" — every PDF starts with it, followed by the version number.
+      magic: (b) => b.subarray(0, 5).toString("ascii") === "%PDF-",
     },
   ],
   [
@@ -164,8 +186,10 @@ export async function storeFile(opts: {
   mimeType: string;
   dir: string;
   maxBytes: number;
+  /** What this caller accepts — IMAGE_TYPES or ATTACHMENT_TYPES. */
+  accept: readonly string[];
 }): Promise<StoreResult> {
-  const { buffer, mimeType, dir, maxBytes } = opts;
+  const { buffer, mimeType, dir, maxBytes, accept } = opts;
 
   if (buffer.length === 0) {
     return { ok: false, status: 400, error: "Uploaded file is empty" };
@@ -178,14 +202,17 @@ export async function storeFile(opts: {
     };
   }
 
-  // 3. Is the declared type one we accept at all?
-  const type = ALLOWED_TYPES.get(mimeType);
+  // 3. Is the declared type one THIS caller accepts? The engine can verify
+  //    more types than any single route is willing to take.
+  const type = accept.includes(mimeType) ? ALLOWED_TYPES.get(mimeType) : undefined;
   if (!type) {
-    return { ok: false, status: 415, error: "Unsupported file type. Use jpeg, png, or webp" };
+    const names = accept.map((t) => ALLOWED_TYPES.get(t)?.ext ?? t).join(", ");
+    return { ok: false, status: 415, error: `Unsupported file type. Use ${names}` };
   }
 
   // 4. Do the actual bytes agree with what was declared?
-  //    12 bytes covers the longest signature we check (WebP's RIFF....WEBP).
+  //    12 bytes covers the longest signature we check (WebP's RIFF....WEBP);
+  //    the shortest is JPEG's three, so every check has enough to read.
   if (buffer.length < 12 || !type.magic(buffer)) {
     return { ok: false, status: 415, error: "File contents do not match its type" };
   }

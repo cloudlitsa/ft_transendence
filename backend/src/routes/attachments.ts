@@ -51,17 +51,26 @@ async function loadAttachment(id: string) {
 
 
 // ---------- Content-Disposition ----------
-// `inline` so an <img> renders the image rather than downloading it, plus the
-// original filename for anyone who does choose "save as".
+// Two dispositions, chosen by type rather than by preference:
 //
-// The filename came from the client, so it goes out twice: a stripped ASCII
-// version for old clients, and the RFC 5987 encoded form that modern browsers
-// prefer. Without the encoding, a name with a quote or a non-ASCII character
-// could break out of the header value.
+//   inline      images — an <img> cannot render an attachment, so this is
+//               forced by how the feature works.
+//   attachment  everything else, currently PDFs. A PDF rendered in the
+//               browser's built-in viewer runs on OUR origin, and some
+//               viewers execute JavaScript embedded in the file. Forcing a
+//               download keeps a user-supplied document out of that context.
+//               `nosniff` on the same response is the other half: together
+//               they stop the browser deciding for itself what this is.
+//
+// The filename goes out twice either way: a stripped ASCII version for old
+// clients, and the RFC 5987 encoded form modern browsers prefer. It came from
+// the client, so without the encoding a name carrying a quote or a non-ASCII
+// character could break out of the header value.
 
-function contentDisposition(originalName: string): string {
+function contentDisposition(originalName: string, mimeType: string): string {
+  const how = mimeType.startsWith("image/") ? "inline" : "attachment";
   const ascii = originalName.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "");
-  return `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(originalName)}`;
+  return `${how}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(originalName)}`;
 }
 
 
@@ -127,7 +136,7 @@ export async function attachmentsRoutes(fastify: FastifyInstance) {
     return reply
       .header("Content-Type", attachment.mimeType)
       .header("Content-Length", stats.size)
-      .header("Content-Disposition", contentDisposition(attachment.originalName))
+      .header("Content-Disposition", contentDisposition(attachment.originalName, attachment.mimeType))
       .header("X-Content-Type-Options", "nosniff")
       .header("Cache-Control", "private, max-age=3600")
       .send(createReadStream(filepath));

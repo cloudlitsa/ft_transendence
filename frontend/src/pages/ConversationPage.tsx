@@ -25,7 +25,7 @@ function formatWhen(iso: string): string {
 //
 // The job here is only to spare someone a slow upload of a file that was
 // always going to be refused.
-const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ACCEPTED_TYPES = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 
 function formatSize(bytes: number): string {
@@ -147,13 +147,48 @@ function Attachment({
     );
   }
 
-  // Not an image. The backend allowlist is images-only today, so this is a
-  // fallback rather than a live path — but it means the day a PDF is allowed,
-  // it renders as something usable instead of a broken <img>.
+  // Not an image — a PDF today. There is nothing to render, so it gets a card
+  // that names the file and links to it. The server sends these with
+  // Content-Disposition: attachment, so the link downloads rather than opening
+  // a document from our origin in the browser's PDF viewer.
   return (
-    <a href={href} target="_blank" rel="noreferrer" className="text-sm underline">
-      {attachment.originalName} ({formatSize(attachment.size)})
-    </a>
+    <div
+      className={
+        "flex items-center gap-2 rounded-lg border px-2 py-1.5 " +
+        (mine ? "border-white/30 bg-white/10" : "border-line bg-surface")
+      }
+    >
+      <span aria-hidden="true" className="text-lg">📄</span>
+      <a
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="min-w-0 flex-1 text-sm underline"
+      >
+        {/* truncate + min-w-0 so a long filename can't widen the bubble */}
+        <span className="block truncate">{attachment.originalName}</span>
+        <span className={mine ? "text-xs text-white/70" : "text-xs text-ink-muted"}>
+          {formatSize(attachment.size)}
+        </span>
+      </a>
+
+      {onDelete && (
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={removing}
+          aria-label={`Remove ${attachment.originalName}`}
+          className={
+            "grid size-6 shrink-0 place-items-center rounded-full " +
+            (mine ? "text-white/80 hover:bg-white/20" : "text-ink-muted hover:bg-surface-sunken") +
+            " focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 " +
+            "disabled:opacity-50 disabled:cursor-not-allowed"
+          }
+        >
+          {removing ? <Spinner /> : <Icon name="x" className="size-4" />}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -214,13 +249,16 @@ export default function ConversationPage() {
 
   // Build a preview URL for the chosen file, and release it afterwards.
   //
+  // Only images get one: a blob: URL for a PDF in an <img> is just a broken
+  // image, so the composer shows a file card for those instead.
+  //
   // createObjectURL hands back a "blob:" URL the browser keeps alive until the
   // page unloads or the URL is revoked. Choosing several images in a row
   // without revoking pins every one of them in memory, so the cleanup function
   // returned below matters — React runs it before the next effect and on
   // unmount.
   useEffect(() => {
-    if (!file) {
+    if (!file || !file.type.startsWith("image/")) {
       setPreview(null);
       return;
     }
@@ -297,7 +335,7 @@ export default function ConversationPage() {
     if (!chosen) return;
 
     if (!ACCEPTED_TYPES.includes(chosen.type)) {
-      toast.error("Images only — jpeg, png or webp.");
+      toast.error("Images (jpeg, png, webp) or PDF only.");
       clearFile();
       return;
     }
@@ -425,11 +463,21 @@ return (
     </ul>
 
     <form onSubmit={send} className="flex flex-col gap-2">
-      {/* Chosen image, before sending. Only rendered once the preview URL
-          exists, so there is never a moment with a broken <img>. */}
-      {preview && (
+      {/* The chosen file, before sending. Keyed off `file` rather than
+          `preview`, because a PDF has no preview URL — it gets a document
+          glyph in the same slot, so the row keeps one shape either way. */}
+      {file && (
         <div className="flex items-center gap-3 rounded-md border border-line bg-surface-sunken p-2">
-          <img src={preview} alt="" className="size-14 rounded object-cover" />
+          {preview ? (
+            <img src={preview} alt="" className="size-14 rounded object-cover" />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="grid size-14 shrink-0 place-items-center rounded bg-surface text-xl"
+            >
+              📄
+            </span>
+          )}
           <div className="min-w-0 flex-1">
             {/* truncate + min-w-0: a long filename must not widen the row */}
             <p className="truncate text-sm text-ink">{file?.name}</p>
@@ -471,7 +519,7 @@ return (
           id="file"
           ref={fileRef}
           type="file"
-          accept="image/jpeg,image/png,image/webp"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
           onChange={pickFile}
           disabled={sending}
           className="peer sr-only"

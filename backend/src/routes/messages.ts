@@ -32,6 +32,7 @@ import { canAccessAlert } from "../lib/alertAccess.js";
 import { broadcastToUsers } from "../lib/wsRegistry.js";
 import {
   ATTACHMENTS_DIR,
+  ATTACHMENT_TYPES,
   MAX_ATTACHMENT_BYTES,
   removeFile,
   safeOriginalName,
@@ -247,6 +248,7 @@ export async function messagesRoutes(fastify: FastifyInstance) {
         mimeType: upload.mimeType,
         dir: ATTACHMENTS_DIR,
         maxBytes: MAX_ATTACHMENT_BYTES,
+        accept: ATTACHMENT_TYPES,   // images and PDFs
       });
       if (!result.ok) {
         return reply.code(result.status).send({ error: result.error });
