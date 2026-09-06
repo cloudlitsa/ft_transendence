@@ -33,6 +33,25 @@ The same principle drives two other places:
 Trade-off: less helpful error messages. Accepted, because the alternative
 leaks the membership of a small, private, trust-based friend list.
 
+### Two deliberate exceptions to the identical-404 rule
+
+The attachment routes answer something other than 404 in two places. Both are
+exceptions on purpose, not oversights, and both should stay.
+
+**410 Gone for an attachment its sender removed.** The caller can already see
+that this attachment exists — it comes back in the message payload with
+`deleted_at` set — so there is nothing left to conceal, and 410 lets the UI
+tell "removed" apart from "broken link".
+
+**403 when you are not the message's author.** By the time that check runs the
+caller has passed `canAccessAlert`, so they can already see the attachment and
+who posted it. A 404 would hide nothing they don't already know, and would
+just be less useful than saying "you can't delete someone else's photo".
+
+The rule the entry above protects is about **what a caller can learn that they
+could not already learn**. Where the answer is "nothing", the specific status
+code is the better one.
+
 ### Passwords and sessions
 
 Passwords are hashed with **bcryptjs** at cost factor 12 (~250ms per hash —
@@ -53,14 +72,35 @@ The backend throws on startup if `JWT_SECRET` is missing, rather than falling
 back to a default. A default would mean a misconfigured deployment silently
 signs tokens with a publicly-known key. Better to refuse to boot.
 
+### Uploads are judged by their bytes, not by their label
+
+A `Content-Type` is written by the client — a claim, not evidence. A shell
+script sent as `image/png` passes any check that reads only that header. So
+`lib/fileStorage.ts` requires both to agree: the declared type must be on the
+allowlist **and** the first bytes must carry that format's signature
+(`89 50 4E 47…` for PNG, `FF D8 FF` for JPEG). The avatar route had only the
+first half until attachments arrived and the two started sharing an engine.
+
+The stored name is a UUID with an extension taken from the allowlist, never
+from the client's filename, so a name can't carry a path (`../../`) or a second
+extension. The original is kept in its own column, for display only.
+
+**Allowed types are per route, not global.** `storeFile` takes an `accept`
+list, so being in the engine's table is necessary but not sufficient: chat
+takes images and PDF, avatars images only, because a PDF avatar would be a
+broken `<img>`. One shared list had silently let PDFs into the avatar route.
+
+Trade-off: adding a format is a code change, not config. That is the point.
+Archives are excluded for the same reason the rule exists — a `.zip` signature
+proves only that a file is a zip, not what is inside it; the README's *File
+upload and management* section records that in full.
+
 ---
 
 ## Who can see what
 
-> **Status.** The schema and the backend were built against the decisions in
-> this section; the chat UI (TRAN-23) is not yet built. These are the design
-> the data model was chosen to support, not a description of a finished
-> feature.
+> **Status.** These decisions are implemented end to end: the schema, the
+> backend routes, and the chat UI that renders them.
 
 ### Chat is a group conversation, not per-friend threads
 
@@ -99,6 +139,29 @@ Any accepted friend of the sender can post, whether or not they've acknowledged.
 Gating chat behind acknowledgement would mean two different trust boundaries on
 the same alert, and a confusing "I can see this but can't reply" state. One
 rule, applied in both places.
+
+### Attachments are deletable by their sender; message text is not
+
+Message text stays immutable — no edit, no delete. An attachment is a separate
+resource, so its sender may remove it: a duty-of-care measure, un-sharing an
+image they regret. "Sender" means the author of the **message**, not of the
+alert — a friend who posts a photo into someone else's check-in owns it.
+
+The delete is **soft**. The file is unlinked but the row stays with
+`deleted_at` set, so the bubble can render a "removed" placeholder. A hard
+delete would take the row too, leaving a message indistinguishable from one
+that never had an attachment — the record would quietly rewrite itself.
+
+Unlinking is best-effort; the accepted cost is a file nothing points at. The
+removal is broadcast to everyone on the alert **including the deleter**, unlike
+`message:new` — they may have the conversation open on another device.
+
+### Every message carries a caption; an attachment is optional
+
+Content keeps its `min(1)` rule. An attachment rides alongside the required
+text, never instead of it. That gives every file context — and every image a
+screen-reader label — and keeps validation simple: there is no empty-message
+case.
 
 ---
 
@@ -154,6 +217,43 @@ One query, no window between check and write. The trade-off: `count === 0`
 doesn't say *why* — missing, not yours, or already closed. That's fine here,
 because all three should return the same 404 anyway (see above). Use
 fetch-then-check when you genuinely need to distinguish the cases.
+
+### A write spanning disk and database goes to disk first
+
+Sending a message with an attachment touches two stores that can't participate
+in one transaction: the filesystem and Postgres. Whichever order you pick, a
+crash in the middle leaves them disagreeing — the only choice is *which*
+disagreement you'd rather have.
+
+We write the file first, then commit the message and the attachment row in one
+transaction, and unlink the file if that transaction throws.
+
+The other order can't be made safe: a commit can't be undone, so a disk write
+that fails afterwards leaves a row pointing at a missing file — a permanently
+broken image. Ours fails the other way, leaving a file no row references:
+invisible, and sweepable.
+
+Message and attachment share one transaction for the reason the placeholder
+exists (see "Attachments are deletable by their sender").
+
+**Deleting reverses the order.** `DELETE /api/attachments/:id` commits
+`deleted_at` first, then unlinks — here the surviving row is what the UI needs,
+and a leftover file is unreachable once the row says deleted. One rule in both
+directions: put the failure where nobody can see it.
+
+### Attachment uploads extend the message endpoint, they don't get their own
+
+`POST /alerts/:id/messages` branches on `isMultipart()` — JSON for a plain
+message, multipart when a file rides along. The alternative was a separate
+upload endpoint returning an id the client then attaches to a message.
+
+Two endpoints would leave a window where an uploaded file belongs to nobody,
+needing a cleanup job for abandoned uploads. One endpoint means the message and
+its attachment commit together or not at all.
+
+The access check runs **before** the body is read, so a caller with no business
+in the conversation never gets to stream megabytes at us or have a file written
+on their behalf.
 
 ### Friendships store a canonical pair
 
@@ -306,13 +406,43 @@ Storing the bytes in Postgres was the alternative. It would grow the database,
 add a query to every avatar load, and inflate every backup — for no gain,
 since nothing about an image benefits from being in a relational table.
 
-Validation is **server-side**, because the browser can be bypassed entirely:
-`@fastify/multipart` enforces a JPEG/PNG/WebP allowlist and a 2 MB cap. Stored
-files get a randomly generated name — the client's filename is never trusted,
-since a caller controls it completely and a path like `../../etc/passwd` is
-just a string until something uses it. The previous file is unlinked on
-replace or delete, so the volume doesn't accumulate orphans. An empty
-`avatar_url` renders a default avatar rather than a broken image.
+Validation is **server-side**, because the browser can be bypassed entirely: a
+JPEG/PNG/WebP allowlist, a 2 MB cap, and a check that the file's bytes match
+its declared type (see "Uploads are judged by their bytes"). That logic now
+lives in `lib/fileStorage.ts`, shared with chat attachments, rather than
+inline in the route. Stored files get a randomly generated name — the client's
+filename is never trusted, since a caller controls it completely and a path
+like `../../etc/passwd` is just a string until something uses it. The previous
+file is unlinked on replace or delete, so the volume doesn't accumulate
+orphans. An empty `avatar_url` renders a default avatar rather than a broken
+image.
+
+### Chat attachments live outside the served directory
+
+`@fastify/static` serves all of `/app/uploads` at `/api/uploads/` with **no
+authentication** — right for a profile picture, wrong for a photo shared in a
+check-in. So attachments go to `/app/private` instead, on its own volume,
+matched by no static prefix: the only way to read one is
+`GET /api/attachments/:id`, which runs `canAccessAlert` first.
+
+Sharing the directory would have been less code, and would have made that
+gated route decorative — the file would also be reachable at a plain URL, with
+none of our code running. A UUID filename is no substitute: an unguessable URL
+is still a URL, and URLs get forwarded, logged and pasted.
+
+The two share an *engine*, not a directory. `lib/fileStorage.ts` validates,
+stores and removes for both, taking the destination as an argument — one place
+to fix a validation bug, two trust levels.
+
+Three headers follow from the file being access-controlled. `Cache-Control:
+private`, never `public`, or a shared cache would hand a copy to anyone asking
+for the same URL. `nosniff`, so the browser can't second-guess the declared
+type. And `Content-Disposition: inline` for images, `attachment` for everything
+else — a PDF opened inline runs in the browser's viewer on *our* origin, where
+some viewers execute embedded JavaScript.
+
+`/app/private` is created and chowned in the Dockerfile before the `USER node`
+switch — see "Non-root containers".
 
 ### Dev mail goes to a catcher, not a real inbox
 
@@ -360,6 +490,7 @@ switching user:
 ```dockerfile
 RUN chown -R node:node /app
 RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+RUN mkdir -p /app/private && chown -R node:node /app/private
 USER node
 ```
 

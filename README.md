@@ -13,7 +13,7 @@ makes this clear to users and in its Terms of Service.
 
 ## Status: in development
 
-**11 of the 14 targeted module points are complete.** See *Modules* below for
+**12 of the 14 targeted module points are complete.** See *Modules* below for
 the tally and `docs/PROJECT.md` for the full plan.
 
 **Working now:**
@@ -25,6 +25,8 @@ the tally and `docs/PROJECT.md` for the full plan.
   httpOnly + Secure cookie sessions, with working UI forms and a route guard
 - Friends system: send/accept/decline requests, list friends, unfriend (backend + UI)
 - Alerts: send, view, acknowledge, close (backend + UI)
+- Chat on an alert, with **image attachments** — upload with a progress bar,
+  inline preview, access-controlled download, sender-only delete
 - Profile page, avatar upload, and live online status for friends
 - In-app toast notifications, installable PWA with offline support
 - **Real-time alert delivery over WebSockets**, verified end to end through the
@@ -34,7 +36,6 @@ the tally and `docs/PROJECT.md` for the full plan.
 - Terms of Service and Privacy Policy pages, linked from a global footer
 
 **Next:**
-- Chat (the remaining half of the User Interaction module)
 - OAuth sign-in
 - Page-by-page adoption of the design system components; responsive pass
 
@@ -233,9 +234,10 @@ network, which the subject permits.
 
 The project targets 14 points (Major = 2 pts, Minor = 1 pt).
 
-**Completed: 11 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) ·
+**Completed: 12 / 14** — Framework (Major, 2) · Real-time WebSockets (Major, 2) ·
 Standard User Management (Major, 2) · ORM (Minor, 1) · PWA (Minor, 1) ·
-Notifications (Minor, 1) · GDPR (Minor, 1) · Custom design system (Minor, 1)
+Notifications (Minor, 1) · GDPR (Minor, 1) · Custom design system (Minor, 1) ·
+File upload and management (Minor, 1)
 
 **In progress: 3 pts** — User Interaction (Major, 2) · OAuth (Minor, 1)
 
@@ -559,6 +561,101 @@ themselves are complete.
 
 **Contributor.** evmouka
 
+### File upload and management — Web · Minor · 1 pt
+
+**What it is.** Users can attach an image or a PDF to a chat message, watch it
+upload, see it in the conversation, and remove it again.
+
+**How it's implemented.**
+
+- **One engine, two destinations.** `backend/src/lib/fileStorage.ts` validates,
+  stores and removes files for both chat attachments and avatars. The caller
+  passes the folder, and that choice is what decides who can read the file —
+  attachments go somewhere private, avatars somewhere public. Moving avatars
+  onto this shared code is also what gave them the byte check; they had none
+  before.
+
+- **Validation on both sides.** The server runs three checks, in this order:
+
+  1. **Type** — is it on the route's allowlist? Chat accepts JPEG, PNG, WebP
+     and PDF. Avatars accept images only.
+  2. **Size** — is it under the limit? 5 MB for chat, 2 MB for avatars.
+  3. **Bytes** — do the first bytes of the file match the type it claims to be?
+
+  The third check is the important one. The `Content-Type` header is written by
+  the client, so it can lie. A shell script sent as `image/png` passes a type
+  check and fails a byte check.
+
+  The file is then saved under a new UUID name. The name sent by the client is
+  never used as a path, so a name like `../../etc/passwd` cannot escape the
+  upload folder.
+
+  The browser runs the same type and size rules before uploading. That only
+  saves the user from waiting for an upload the server would refuse anyway. It
+  is a convenience, not a security check.
+
+- **Access control.** The folder a file lands in decides who can read it:
+
+  - `/app/private` holds chat attachments, on its own volume. **No static route
+    points at it.** The only way to read one is `GET /api/attachments/:id`,
+    which runs the same `canAccessAlert` check as the conversation itself.
+  - `/app/uploads` holds avatars, and `@fastify/static` serves it publicly.
+    That is correct: a profile picture is meant to be seen.
+
+  The download route sets three headers, each one closing a different hole:
+
+  - `Cache-Control: private` — a shared cache (a CDN, a company proxy) must not
+    keep a copy of a file that sits behind a permission check.
+  - `X-Content-Type-Options: nosniff` — the browser must not guess the file
+    type for itself and treat an image as something it can run.
+  - `Content-Disposition: inline` for images, `attachment` for everything else.
+    An image has to be inline to appear in the page. A PDF opened inline runs
+    inside the browser's PDF viewer on our own domain, and some viewers execute
+    JavaScript stored in the file — so PDFs download instead.
+
+- **Preview and progress.** The composer shows a thumbnail before sending (a
+  document card for PDFs, which have nothing to preview), and images render
+  inline in the bubble. Uploads go through `XMLHttpRequest`
+  (`uploadWithProgress`) rather than `fetch`, which reports nothing while a body
+  is being sent — that is what the progress bar tracks.
+
+- **Deletion.** `DELETE /api/attachments/:id`, sender-only, enforced with a
+  `403` rather than by hiding the button. The delete is **soft**: the file is
+  unlinked but the row survives with `deleted_at` set, so the bubble shows a
+  "removed" placeholder. It is broadcast over the WebSocket, so the image
+  disappears from other people's open conversations without a refresh.
+
+The reasoning behind each of these, and the alternatives rejected, is recorded
+in `docs/DECISIONS.md`.
+
+**How to verify.**
+1. **Upload** — attach an image, add a caption, **Send** → thumbnail preview,
+   then the image in the bubble. Throttle to *Slow 3G* first to watch the
+   progress bar move.
+2. **Client validation** — choose a `.zip`, or anything over 5 MB → refused
+   before a request leaves the browser.
+3. **Server validation** — bypass the page with
+   `curl -b cookies.txt -F 'content=hi' -F 'file=@script.sh;type=image/png'
+   https://localhost/api/alerts/<alert-id>/messages` → `415`, the bytes are not
+   a PNG. Over 5 MB → `413`; empty caption → `400`.
+4. **Access control** — `GET /api/attachments/<id>` as someone outside the
+   alert's circle → `404`. Take the stored filename from the database and
+   request `/api/uploads/<filename>` → `404` as well: attachments are not in
+   the served directory.
+5. **Delete (two browsers)** — remove your own image → the other browser shows
+   "Image removed" without a refresh, and the URL then returns `410`, not 404.
+6. **Not yours** — a friend's image shows no delete control, and `DELETE`ing it
+   directly returns `403`.
+
+**Scope note.** Images and PDF only — the formats whose contents can be
+verified. A zip is excluded because its signature proves only that it is a zip,
+not what is inside it. Word documents are zips, so the same rule covers them.
+
+Avatar upload is documented under *Standard User Management* — same engine,
+different directory, different trust levels.
+
+**Contributor.** mosokina
+
 ## Project structure
 
 ```
@@ -567,8 +664,10 @@ certs/                  Local TLS certificate and key (gitignored, per machine)
 backend/                Fastify + TypeScript API
   prisma/               Database schema and migrations
   src/
-    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts, wsRegistry.ts)
-    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts, alerts.ts, ws.ts)
+    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts,
+                        wsRegistry.ts, fileStorage.ts, alertAccess.ts)
+    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts, alerts.ts,
+                        messages.ts, attachments.ts, profile.ts, ws.ts)
     prisma.ts           Shared PrismaClient instance
     server.ts           App entry: plugin registration, health check
 docs/                   Project documentation (PROJECT, DEVELOPMENT, DECISIONS,
@@ -584,7 +683,7 @@ frontend/               React + TypeScript app
     lib/                API client (api.ts), auth context, presence context,
                         alert socket hook
     pages/              Route pages (Home, Login, Signup, Friends, Alerts,
-                        Profile, UserProfile, Terms, Privacy)
+                        Conversation, Profile, UserProfile, Terms, Privacy)
     index.css           Design tokens (@theme): palette and typography
     App.tsx             Router and nav
     main.tsx            App entry: providers and root render
