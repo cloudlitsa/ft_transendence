@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { requireAuth, authedUserId } from "../lib/requireAuth.js";
 import { getFriendIds } from "../lib/friendships.js";
+import { canAccessAlert } from "../lib/alertAccess.js";
 import { Prisma } from "@prisma/client";
 import { broadcastToUsers } from "../lib/wsRegistry.js";
 
@@ -136,6 +137,49 @@ export async function alertsRoutes(fastify: FastifyInstance) {
   // ---------- Validation for :id ----------
   const idParamSchema = z.object({
     id: z.string().uuid("Invalid alert id"),
+  });
+
+  // ---------- GET /api/alerts/:id ----------
+  // One alert, for anyone entitled to see its conversation. The conversation
+  // page needs this on a hard refresh, where there is no navigation state to
+  // read the header out of.
+  //
+  // Entitlement is canAccessAlert — the same gate the message and attachment
+  // routes use — so the header and the messages under it can never disagree
+  // about who may look. Every refusal is the same 404: "doesn't exist", "not
+  // yours" and "not their friend" have to stay indistinguishable, or this
+  // becomes a way to probe which alert ids are real.
+  fastify.get("/:id", async (request, reply) => {
+    const parsed = idParamSchema.safeParse(request.params);
+    if (!parsed.success) {
+      return reply.code(400).send({ error: "Invalid alert id" });
+    }
+    const { id } = parsed.data;
+    const me = authedUserId(request);
+
+    if ((await canAccessAlert(id, me)) === null) {
+      return reply.code(404).send({ error: "Alert not found" });
+    }
+
+    // Only what the conversation header renders. sender.id is included so the
+    // client can tell "your check-in" from a friend's without a second lookup.
+    const alert = await prisma.alert.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        note: true,
+        status: true,
+        sender: { select: { id: true, displayName: true, avatarUrl: true } },
+      },
+    });
+    // canAccessAlert already proved the row exists, so this only fires if it
+    // is deleted between the two queries — and the same 404 is the right
+    // answer for that too.
+    if (!alert) {
+      return reply.code(404).send({ error: "Alert not found" });
+    }
+
+    return reply.send({ alert });
   });
 
   // ---------- POST /api/alerts/:id/acknowledge ----------
