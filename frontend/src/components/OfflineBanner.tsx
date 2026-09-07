@@ -31,20 +31,18 @@ export default function OfflineBanner() {
   if (online) return null;
 
   // Offline: show the banner.
+  // Red is correct here — losing the connection is a genuine failure state,
+  // which is exactly what the `danger` token is reserved for. This is the one
+  // place in the app where red is right for something that isn't a button.
   return (
     <div
       role="status" // marks this as a status message for assistive tech
       aria-live="polite" // screen readers announce it without interrupting
-      style={{
-        background: "#b91c1c",
-        color: "white",
-        textAlign: "center",
-        padding: "0.5rem 1rem",
-        fontSize: "0.9rem",
-      }}
+      className="bg-danger-600 px-4 py-2 text-center text-sm text-white"
     >
       You're offline — showing the last loaded version. Some features are
       unavailable until you reconnect.
     </div>
   );
 }
+ 

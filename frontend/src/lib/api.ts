@@ -77,3 +77,70 @@ export const api = {
   upload: <T>(path: string, formData: FormData) =>
     request<T>(path, { method: "POST", body: formData }),
 };
+
+// ---------- Uploads that report progress ----------
+//
+// fetch() cannot tell you how far an upload has got. It hands back a promise
+// that settles when the request is over, with nothing in between. Fine for a
+// 40KB avatar; wrong for a 5MB photo on a slow connection, where a UI that
+// shows nothing for twenty seconds looks broken.
+//
+// XMLHttpRequest is the older API and the only one in the browser that emits
+// events while the body is still being sent. So chat uploads go through here;
+// everything else keeps using request() above.
+//
+// The error contract is deliberately identical — it throws an Error carrying
+// the backend's { error } message — so callers catch it the same way.
+export function uploadWithProgress<T>(
+  path: string,
+  formData: FormData,
+  onProgress: (percent: number) => void,
+): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", `/api${path}`);
+
+    // The XHR equivalent of fetch's credentials: "include" — without it the
+    // auth cookie is not sent and the backend answers 401.
+    xhr.withCredentials = true;
+
+    // `xhr.upload`, NOT `xhr`. Progress events on xhr itself describe the
+    // download of the response, which here is a few hundred bytes of JSON.
+    // lengthComputable is false when the total size isn't known; there is
+    // nothing sensible to show in that case, so it is skipped.
+    xhr.upload.addEventListener("progress", (e) => {
+      if (e.lengthComputable) {
+        onProgress(Math.round((e.loaded / e.total) * 100));
+      }
+    });
+
+    // "load" fires for every completed response, including 4xx and 5xx —
+    // unlike fetch, a non-2xx status is not an error to XHR either. The
+    // status check below is what turns it into a rejection.
+    xhr.addEventListener("load", () => {
+      let body: unknown = null;
+      try {
+        body = JSON.parse(xhr.responseText);
+      } catch {
+        // no JSON body — leave body as null
+      }
+
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(body as T);
+      } else {
+        reject(new Error((body as ApiError)?.error || `Request failed (${xhr.status})`));
+      }
+    });
+
+    // "error" is a transport failure — no response at all. A 415 from the
+    // server is not this; it arrives as "load" with a status.
+    xhr.addEventListener("error", () => reject(new Error("Network error")));
+    xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
+
+    // No setRequestHeader("Content-Type") on purpose. The browser has to set
+    // it itself, because multipart needs a boundary string in the header that
+    // matches the one separating the parts in the body — and only the browser
+    // knows what it generated.
+    xhr.send(formData);
+  });
+}

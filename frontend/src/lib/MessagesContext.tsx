@@ -14,6 +14,7 @@ interface MessagesContextValue {
   setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
   setOpenAlertId: (id: string | null) => void;   // which conversation is on screen
   addIncomingMessage: (m: ChatMessage) => void;   // called by the socket
+  removeAttachment: (a: { id: string; alertId: string }) => void;  // called by the socket
 }
 
 const MessagesContext = createContext<MessagesContextValue | null>(null);
@@ -31,16 +32,63 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const addIncomingMessage = useCallback((m: ChatMessage) => {
-    // Ignore messages for a conversation the user isn't currently looking at.
-    if (m.alertId !== openAlertIdRef.current) return;
-    // Dedupe by id: the sender receives their own message twice (once as the
-    // POST reply, once as this broadcast). Matching ids collapse to one.
-    setMessages((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, m]));
+  // A message with no alertId can't be matched against the open conversation,
+  // so it would be dropped by the check below — silently, and indistinguishably
+  // from the legitimate case of a message for a conversation we're not viewing.
+  // Loud, because it always means a bug: a stale backend build was sending
+  // message:new without alertId and live chat quietly stopped working.
+  if (!m.alertId) {
+    console.warn("message:new missing alertId", m);
+    return;
+  }
+  if (m.alertId !== openAlertIdRef.current) return;
+  setMessages((cur) => (cur.some((x) => x.id === m.id) ? cur : [...cur, m]));
+}, []);
+
+  // A sender removed one of their attachments. Mark it, don't drop it.
+  //
+  // Setting deletedAt produces exactly the state a page reload would produce,
+  // so a live delete and a refreshed one look identical. Filtering the
+  // attachment out of the array instead would make the bubble look like it
+  // never had an image — the thing the soft delete exists to prevent.
+  //
+  // The timestamp is generated here rather than sent by the server, because
+  // nothing displays it: rendering only asks whether deletedAt is set at all.
+  // If a "removed at 14:32" label is ever wanted, the broadcast should carry
+  // the real value instead.
+  const removeAttachment = useCallback(({ id, alertId }: { id: string; alertId: string }) => {
+    // Same guard as addIncomingMessage: a deletion in a conversation that
+    // isn't on screen has nothing to update.
+    if (alertId !== openAlertIdRef.current) return;
+
+    setMessages((cur) => {
+      let changed = false;
+      const next = cur.map((m) => {
+        // Skip messages that don't hold this attachment, and ones where it is
+        // already marked — a delete can arrive twice (the socket does not skip
+        // the deleter, so their own tab hears it as well as getting the
+        // response).
+        if (!m.attachments.some((a) => a.id === id && !a.deletedAt)) return m;
+        changed = true;
+        // New objects the whole way down. Mutating m.attachments in place
+        // would leave React comparing identical references and re-rendering
+        // nothing.
+        return {
+          ...m,
+          attachments: m.attachments.map((a) =>
+            a.id === id ? { ...a, deletedAt: new Date().toISOString() } : a,
+          ),
+        };
+      });
+      // Returning the original array when nothing matched avoids a pointless
+      // re-render of the whole list.
+      return changed ? next : cur;
+    });
   }, []);
 
   const value = useMemo(
-    () => ({ messages, setMessages, setOpenAlertId, addIncomingMessage }),
-    [messages, setOpenAlertId, addIncomingMessage],
+    () => ({ messages, setMessages, setOpenAlertId, addIncomingMessage, removeAttachment }),
+    [messages, setOpenAlertId, addIncomingMessage, removeAttachment],
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

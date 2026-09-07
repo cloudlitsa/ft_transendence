@@ -8,6 +8,7 @@ import { messagesRoutes } from "./routes/messages.js";
 import { gdprRoutes } from "./routes/gdpr.js";
 import { wsRoutes } from "./routes/ws.js";
 import { profileRoutes } from "./routes/profile.js";
+import { attachmentsRoutes } from "./routes/attachments.js";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
 import oauthPlugin from "@fastify/oauth2";
@@ -64,20 +65,9 @@ await fastify.register(oauthPlugin, {
   startRedirectPath: "/api/auth/google",
   callbackUri: process.env.GOOGLE_CALLBACK_URL!,
 });
-// await fastify.register(oauthPlugin, {
-//   name: "googleOAuth2",
-//   scope: ["profile", "email"],
-//   credentials: {
-//     client: {
-//       id: process.env.GOOGLE_CLIENT_ID!,
-//       secret: process.env.GOOGLE_CLIENT_SECRET!,
-//     },
-//     discovery: { issuer: "https://accounts.google.com" },
-//     // auth: oauthPlugin.GOOGLE_CONFIGURATION,
-//   },
-//   startRedirectPath: "/api/auth/google",
-//   callbackUri: process.env.GOOGLE_CALLBACK_URL!,
-// });
+
+// Attachment download and delete live under /api/attachments/*
+await fastify.register(attachmentsRoutes, { prefix: "/api/attachments" });
 
 // Health endpoint: proves the whole chain (browser -> backend -> DB) works.
 fastify.get("/api/health", async (request, reply) => {

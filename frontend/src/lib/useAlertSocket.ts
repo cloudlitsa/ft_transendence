@@ -37,7 +37,12 @@ type ServerMessage =
   | { type: "connected" }
   | { type: "alert:new"; alert: IncomingAlert }
   | { type: "presence"; userId: string; online: boolean }
-  | { type: "message:new"; message: ChatMessage };
+  | { type: "message:new"; message: ChatMessage }
+  | { type: "alert:ack"; alertId: string; acknowledgement: { acknowledgedAt: string; user: AlertSender } }
+  // Sent when a sender removes their own attachment. alertId is what tells us
+  // whether it belongs to the conversation currently on screen.
+  | { type: "attachment:deleted"; attachment: { id: string; alertId: string } };
+  
 // The alertType enum values are database identifiers, not English. Map them
 // once here rather than scattering the wording through components.
 const ALERT_WORDING: Record<IncomingAlert["alertType"], string> = {
@@ -56,9 +61,9 @@ const MAX_ATTEMPTS = 8;
 
 export function useAlertSocket() {
   const { user } = useAuth();
-  const { setFriendsAlerts } = useAlerts();
+  const { setFriendsAlerts, bumpAck } = useAlerts();
   const { setPresence } = usePresence();
-  const { addIncomingMessage } = useMessages();
+  const { addIncomingMessage, removeAttachment } = useMessages();
   const toast = useToast();
 
   // The effect must not depend on `toast`: ToastProvider hands out a new
@@ -135,9 +140,22 @@ export function useAlertSocket() {
           case "message:new":
             addIncomingMessage(message.message);
             break;
+          case "attachment:deleted":
+            // No toast. Someone un-sharing an image they regret should not be
+            // announced to the room — the placeholder appearing is the whole
+            // notification.
+            removeAttachment(message.attachment);
+            break;
           case "presence":
             setPresence(message.userId, message.online);
             break;
+          case "alert:ack": {
+            toastRef.current.success(
+              `${message.acknowledgement.user.displayName} has seen your check-in`,
+            );
+            bumpAck();
+            break;
+          }
         }
       };
 
