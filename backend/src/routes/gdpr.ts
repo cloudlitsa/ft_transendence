@@ -85,7 +85,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     const doomed = await prisma.attachment.findMany({
       where: {
         deletedAt: null,
-        message: { OR: [{ senderId: me }, { alert: { senderId: me } }] },
+        OR: [{ message: { senderId: me } }, { message: { alert: { senderId: me } } }],
       },
       select: { filename: true },
     });
