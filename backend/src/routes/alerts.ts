@@ -299,6 +299,11 @@ export async function alertsRoutes(fastify: FastifyInstance) {
       // Missing, not mine, or already closed — same 404 for all three.
       return reply.code(404).send({ error: "Alert not found" });
     }
+
+    // Best-effort, in its own try/catch: the close is already committed, so a
+    // socket failure must not turn an applied change into a 500. Nothing is
+    // lost either way — GET /api/alerts returns active alerts only, so a
+    // missed event self-corrects on the client's next fetch.
     try {
       const friendIds = await getFriendIds(me);
       broadcastToUsers(friendIds, { type: "alert:closed", alertId: id });

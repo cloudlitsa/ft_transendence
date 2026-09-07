@@ -203,7 +203,6 @@ interface HeaderAlert {
 export default function ConversationPage() {
   const { id } = useParams();   // reads the ":id" out of the URL
 
-
   const [alert, setAlert] = useState<HeaderAlert | undefined>();
   useEffect(() => {
     if (!id) return;
@@ -236,7 +235,12 @@ export default function ConversationPage() {
     setAlert((cur) =>
       cur && cur.status !== "closed" ? { ...cur, status: "closed" } : cur,
     );
-  }, [closedAlertId, id]);
+    // alert?.status is in the deps because the close can land while the fetch
+    // above is still in flight: the effect would run against an undefined
+    // alert, no-op, and then be overwritten by a response that still says
+    // "active". Re-running when the status arrives applies it either way; the
+    // guard inside stops it looping.
+  }, [closedAlertId, id, alert?.status]);
 
   const toast = useToast();
 
