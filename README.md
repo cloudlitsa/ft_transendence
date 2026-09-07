@@ -276,7 +276,7 @@ File upload and management (Minor, 1)
 
 **Scope note.** Online status is friends-only (pending requests show no dot), which matches the subject. The profile page also hosts the GDPR export/delete buttons (that module's frontend) since it's the natural account hub.
 
-**Contributor.** mosokina, evmouka
+**Contributor.** mosokina, evmouka, mtocu
 
 ### Progressive Web App (PWA) — Web · Minor · 1 pt
 
@@ -718,7 +718,10 @@ page that promises a specific mechanism goes stale the moment the UI changes.
 The backend implementing those rights is documented under *GDPR Compliance*
 above.
 
-## Resources
+## Resources & AI Usage
 
 - Fastify, Vite, React, Prisma, PostgreSQL, Caddy documentation
-- (AI usage documented per README requirements as the project develops.)
+- **Artificial Intelligence Usage**:
+
+  * **Pull Request Reviews**: AI-powered tools were used to assist with reviewing Pull Requests and code changes.
+  * **Research & Learning**: AI-powered tools were used to research framework APIs, explore configuration options, troubleshoot technical questions, and support learning of new technical concepts.
