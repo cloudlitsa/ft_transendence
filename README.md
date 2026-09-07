@@ -644,6 +644,7 @@ in `docs/DECISIONS.md`.
    the served directory.
 5. **Delete (two browsers)** — remove your own image → the other browser shows
    "Image removed" without a refresh, and the URL then returns `410`, not 404.
+   (A removed PDF says "File removed".)
 6. **Not yours** — a friend's image shows no delete control, and `DELETE`ing it
    directly returns `403`.
 

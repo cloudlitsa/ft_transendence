@@ -97,7 +97,9 @@ function Attachment({
           (mine ? "border-white/40 text-white/80" : "border-line text-ink-muted")
         }
       >
-        Image removed
+        {/* mime_type survives the soft delete, so the placeholder can still
+            name what was here rather than calling every file an image. */}
+        {attachment.mimeType.startsWith("image/") ? "Image removed" : "File removed"}
       </p>
     );
   }
