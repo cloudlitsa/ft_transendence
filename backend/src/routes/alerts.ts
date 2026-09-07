@@ -299,6 +299,12 @@ export async function alertsRoutes(fastify: FastifyInstance) {
       // Missing, not mine, or already closed — same 404 for all three.
       return reply.code(404).send({ error: "Alert not found" });
     }
+    try {
+      const friendIds = await getFriendIds(me);
+      broadcastToUsers(friendIds, { type: "alert:closed", alertId: id });
+    } catch (err) {
+      request.log.error({ err }, "failed to broadcast alert:closed");
+    }
 
     return reply.send({ ok: true });
   });
