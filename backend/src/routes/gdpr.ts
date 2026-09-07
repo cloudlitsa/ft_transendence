@@ -94,9 +94,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
     for (const { filename } of doomed) {
-      await removeFile(ATTACHMENTS_DIR, filename).catch((err) =>
-        request.log.error({ err, filename }, "attachment file left behind"),
-      );
+      await removeFile(ATTACHMENTS_DIR, filename);
     }
     if (user.avatarUrl?.startsWith(AVATAR_URL_PREFIX)) {
       await removeFile(
