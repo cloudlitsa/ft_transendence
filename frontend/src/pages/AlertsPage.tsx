@@ -444,7 +444,6 @@ export default function AlertsPage() {
                 </Button>
                 <Link
                   to={`/alerts/${myAlert.id}`}
-                  state={{ alert: myAlert }}
                   className="font-medium text-brand-600 underline"
                 >
                   Open conversation →
@@ -522,7 +521,6 @@ export default function AlertsPage() {
                         )}
                         <Link
                           to={`/alerts/${alert.id}`}
-                          state={{ alert }}
                           className="font-medium text-brand-600 underline"
                         >
                           Open conversation →
