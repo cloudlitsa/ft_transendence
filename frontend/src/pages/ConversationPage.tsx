@@ -547,15 +547,27 @@ return (
           onChange={(e) => setDraft(e.target.value)}
           maxLength={2000}
           rows={1}
-          placeholder="Type a message…"
+          // A caption is required, so with a file chosen and an empty box the
+          // Send button is disabled. Say why here rather than leaving someone
+          // to work it out from a greyed-out button.
+          placeholder={file ? "Add a caption to send…" : "Type a message…"}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(e); }
           }}
           className="flex-1 border border-line rounded-md px-3 py-2 bg-surface-sunken resize-none"
         />
-        {/* Still disabled on an empty caption even when an image is chosen:
-            the backend requires content, so an image never travels alone. */}
-        <Button type="submit" loading={sending} disabled={!draft.trim()}>Send</Button>
+        {/* Still disabled on an empty caption even when a file is chosen: the
+            backend requires content, so an attachment never travels alone.
+            The title explains the disabled state on hover; the placeholder
+            above carries the same message where the cursor already is. */}
+        <Button
+          type="submit"
+          loading={sending}
+          disabled={!draft.trim()}
+          title={!draft.trim() && file ? "Add a caption to send this file" : undefined}
+        >
+          Send
+        </Button>
       </div>
     </form>
   </main>
