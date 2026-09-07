@@ -225,7 +225,19 @@ export default function ConversationPage() {
 
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const { messages, setMessages, setOpenAlertId, removeAttachment } = useMessages();
+  const { messages, setMessages, setOpenAlertId, removeAttachment, closedAlertId } =
+    useMessages();
+
+  // The sender closed this check-in while we were reading it. Flip the header
+  // in place rather than refetching: "closed" is the whole of what changed,
+  // and this produces exactly the state a reload would.
+  useEffect(() => {
+    if (!closedAlertId || closedAlertId !== id) return;
+    setAlert((cur) =>
+      cur && cur.status !== "closed" ? { ...cur, status: "closed" } : cur,
+    );
+  }, [closedAlertId, id]);
+
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);

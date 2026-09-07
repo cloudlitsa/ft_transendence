@@ -15,6 +15,8 @@ interface MessagesContextValue {
   setOpenAlertId: (id: string | null) => void;   // which conversation is on screen
   addIncomingMessage: (m: ChatMessage) => void;   // called by the socket
   removeAttachment: (a: { id: string; alertId: string }) => void;  // called by the socket
+  closeOpenAlert: (alertId: string) => void;      // called by the socket
+  closedAlertId: string | null;   // set when the open conversation's alert closes
 }
 
 const MessagesContext = createContext<MessagesContextValue | null>(null);
@@ -27,8 +29,20 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
   // box whose .current is always current — and changing it doesn't re-run the
   // socket effect. (Same stale-closure fix useAlertSocket uses for toastRef.)
   const openAlertIdRef = useRef<string | null>(null);
+
+  // The sender closed the check-in this conversation hangs off.
+  //
+  // ConversationPage owns the alert object — it fetches it by id — so this is
+  // the socket's only route to that state, exactly as addIncomingMessage is
+  // its only route to the message list. State rather than a ref, because the
+  // page has to re-render when it changes.
+  const [closedAlertId, setClosedAlertId] = useState<string | null>(null);
+
   const setOpenAlertId = useCallback((id: string | null) => {
     openAlertIdRef.current = id;
+    // A close belongs to the conversation it arrived for. Left set, it would
+    // mark the NEXT conversation closed the moment it opened.
+    setClosedAlertId(null);
   }, []);
 
   const addIncomingMessage = useCallback((m: ChatMessage) => {
@@ -86,9 +100,29 @@ export function MessagesProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  // Same guard as addIncomingMessage and removeAttachment: a close in a
+  // conversation nobody is looking at has nothing on screen to update. The
+  // alerts list handles that case separately, from the same event.
+  //
+  // Only the id is stored, not a status string — the page turns it into
+  // status: "closed", which is exactly the state a reload would produce.
+  // Same reasoning as the synthesised deletedAt above.
+  const closeOpenAlert = useCallback((alertId: string) => {
+    if (alertId !== openAlertIdRef.current) return;
+    setClosedAlertId(alertId);
+  }, []);
+
   const value = useMemo(
-    () => ({ messages, setMessages, setOpenAlertId, addIncomingMessage, removeAttachment }),
-    [messages, setOpenAlertId, addIncomingMessage, removeAttachment],
+    () => ({
+      messages,
+      setMessages,
+      setOpenAlertId,
+      addIncomingMessage,
+      removeAttachment,
+      closeOpenAlert,
+      closedAlertId,
+    }),
+    [messages, setOpenAlertId, addIncomingMessage, removeAttachment, closeOpenAlert, closedAlertId],
   );
 
   return <MessagesContext.Provider value={value}>{children}</MessagesContext.Provider>;

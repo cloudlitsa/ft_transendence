@@ -39,6 +39,7 @@ type ServerMessage =
   | { type: "presence"; userId: string; online: boolean }
   | { type: "message:new"; message: ChatMessage }
   | { type: "alert:ack"; alertId: string; acknowledgement: { acknowledgedAt: string; user: AlertSender } }
+  | { type: "alert:closed"; alertId: string }
   // Sent when a sender removes their own attachment. alertId is what tells us
   // whether it belongs to the conversation currently on screen.
   | { type: "attachment:deleted"; attachment: { id: string; alertId: string } };
@@ -63,7 +64,7 @@ export function useAlertSocket() {
   const { user } = useAuth();
   const { setFriendsAlerts, bumpAck } = useAlerts();
   const { setPresence } = usePresence();
-  const { addIncomingMessage, removeAttachment } = useMessages();
+  const { addIncomingMessage, removeAttachment, closeOpenAlert } = useMessages();
   const toast = useToast();
 
   // The effect must not depend on `toast`: ToastProvider hands out a new
@@ -148,6 +149,16 @@ export function useAlertSocket() {
             break;
           case "presence":
             setPresence(message.userId, message.online);
+            break;
+          case "alert:closed":
+            setFriendsAlerts((current) =>
+              current.filter((a) => a.id !== message.alertId),
+            );
+            // And the conversation, if that alert's thread is the one on
+            // screen. One event, two surfaces: the list drops the row because
+            // GET /api/alerts would no longer return it, the conversation
+            // marks it closed because GET /alerts/:id still would.
+            closeOpenAlert(message.alertId);
             break;
           case "alert:ack": {
             toastRef.current.success(
