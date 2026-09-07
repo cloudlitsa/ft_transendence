@@ -34,10 +34,9 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     const acknowledgements = await prisma.acknowledgement.findMany({ where: { userId: me } });
     const messages = await prisma.message.findMany({ where: { senderId: me } });
     // Everything except `filename` — that's the internal <uuid>.<ext> on disk, not something the user uploaded or would recognise.
-    const attachments = await prisma.attachment.findMany({
+    const attachments = (await prisma.attachment.findMany({
       where: { message: { senderId: me } },
-      omit: { filename: true },
-    });
+    })).map(({ filename, ...rest }) => rest);
 
     const payload = { exportedAt: new Date().toISOString(), user, friendships, alerts, acknowledgements, messages, attachments };
     
