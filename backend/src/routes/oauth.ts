@@ -12,6 +12,13 @@
 import type { FastifyInstance } from "fastify";
 import { prisma } from "../prisma.js";
 import { signToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
+import type { OAuth2Namespace } from "@fastify/oauth2";
+
+declare module "fastify" {
+  interface FastifyInstance {
+    googleOAuth2: OAuth2Namespace;
+  }
+}
 
 // Shape of the fields we use from Google's userinfo response.
 type GoogleProfile = {
