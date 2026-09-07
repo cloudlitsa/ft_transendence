@@ -56,7 +56,7 @@ the tally and `docs/PROJECT.md` for the full plan.
    ```
 
 2. Edit `.env` and set values. You MUST set:
-   - `POSTGRES_PASSWORD` — any strong password
+   - `POSTGRES_PASSWORD` — any strong password. To avoid @, :, / and #
    - `JWT_SECRET` — generate one with: `openssl rand -base64 48`
 
    The backend will refuse to start if `JWT_SECRET` is missing — this is deliberate.
@@ -69,6 +69,11 @@ the tally and `docs/PROJECT.md` for the full plan.
    mkcert localhost 127.0.0.1 ::1
    cd ..
    ```
+   On Linux OS, after the `mkdert -install`,  run the next cmd with sudo:
+   `sudo apt install libnss3-tools`
+   - then re-run `mkcert -install` 👈
+   - restrat chrome
+
    `mkcert -install` adds a local certificate authority to your system trust
    store (and Firefox's, if `nss` is installed), so the browser shows a normal
    padlock rather than a warning. The generated certificate and key live in
@@ -77,7 +82,7 @@ the tally and `docs/PROJECT.md` for the full plan.
 
 4. Start everything with one command:
    ```
-   docker compose up --build
+   docker compose up -d --build
    ```
 
 5. Create the database tables:
@@ -92,7 +97,12 @@ the tally and `docs/PROJECT.md` for the full plan.
    Plain HTTP is redirected to HTTPS. No container other than the proxy publishes
    a port, so there is no unencrypted route into the app.
 
-7. *(Optional, for editor support)* Install dependencies on the host too:
+7. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
+   ```
+   google-chrome --incognito --user-data-dir=/tmp/session1 http://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 http://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 http://localhost &
+   ```
+
+8. *(Optional, for editor support)* Install dependencies on the host too:
    ```
    cd frontend && npm install && cd ../backend && npm install && cd ..
    ```
