@@ -419,7 +419,8 @@ purpose, and the sender needs to see that someone has picked it up.
   per user rather than a single connection, and removes sockets on close.
 
 - **Events** — `alert:new` is pushed to the sender's friends when a check-in is
-  created; `alert:ack` is pushed **only to the original sender** when a friend
+  created, and `alert:closed` to the same friends when the sender closes it;
+  `alert:ack` is pushed **only to the original sender** when a friend
   acknowledges. Acknowledgement is deliberately narrow: the sender needs to know
   someone responded, but other friends do not need to be told who answered.
 
