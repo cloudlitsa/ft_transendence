@@ -20,7 +20,12 @@ COPY . .
 
 # 4. Make /app writable by node before we switch to that user.
 RUN chown -R node:node /app
+# Both upload directories must exist in the image, owned by node, BEFORE the
+# USER switch. Docker creates a named volume's mount point as root when the
+# path is missing from the image, and the process then fails to write with
+# nothing in the logs.
 RUN mkdir -p /app/uploads && chown -R node:node /app/uploads
+RUN mkdir -p /app/private && chown -R node:node /app/private
 
 # 5. The node:22-alpine image ships with a non-root user called "node".
 USER node

@@ -1,6 +1,7 @@
 // Prisma schema for the check-in app.
 //
-// Five models cover the MVP: User, Friendship, Alert, Acknowledgement, Message.
+// Six models cover the MVP: User, Friendship, Alert, Acknowledgement, Message,
+// Attachment.
 // Design decisions:
 //   - UUIDs for IDs (unguessable, no easy enumeration)
 //   - Symmetric friendships (one row per pair, smaller UUID first)
@@ -134,7 +135,9 @@ model Acknowledgement {
 
 
 // ---------- Message ----------
-// Chat tied to an alert. Immutable — no updates, no deletes (except via cascade).
+// Chat tied to an alert. The text is immutable — no updates, no deletes
+// (except via cascade). An attachment is a separate resource and its sender
+// *can* delete it; see Attachment below.
 
 model Message {
   id        String   @id @default(uuid()) @db.Uuid
@@ -143,9 +146,36 @@ model Message {
   content   String
   createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  alert  Alert @relation(fields: [alertId], references: [id], onDelete: Cascade)
-  sender User  @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  alert       Alert        @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  sender      User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  attachments Attachment[]
 
   @@index([alertId, createdAt])
   @@map("messages")
+}
+
+// ---------- Attachment ----------
+// A file hanging off a chat message. Stored on disk OUTSIDE the statically
+// served uploads root — the only way to read one is GET /api/attachments/:id,
+// which gates on canAccessAlert.
+//
+// Delete is a SOFT delete: the sender can remove their own attachment, but the
+// row stays with deletedAt set so the bubble can render a "removed" placeholder
+// (see DECISIONS.md, "Attachments are deletable by their sender"). Only the
+// file leaves the disk.
+
+model Attachment {
+  id           String    @id @default(uuid()) @db.Uuid
+  messageId    String    @map("message_id") @db.Uuid
+  filename     String // the stored "<uuid>.<ext>" on disk (never the client's name)
+  originalName String    @map("original_name") // for display / download filename
+  mimeType     String    @map("mime_type")
+  size         Int // bytes
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  deletedAt    DateTime? @map("deleted_at") @db.Timestamptz
+
+  message Message @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId])
+  @@map("attachments")
 }
