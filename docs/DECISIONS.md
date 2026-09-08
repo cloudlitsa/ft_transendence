@@ -526,6 +526,33 @@ Two consequences we accepted:
   the moment the mechanism changes; under-promising there costs nothing,
   while over-promising is the error that actually matters.
 
+### Alpine base images
+
+`node:22-alpine`, `postgres:16-alpine`, `caddy:2-alpine`. The subject doesn't
+ask for this; we chose it.
+
+**Size.** `node:22-alpine` is around 130 MB against roughly 1.1 GB for the full
+image. That's faster builds and faster pulls, and it matters directly at
+evaluation — a fresh clone has to download all of it before the app starts.
+
+**Attack surface.** Fewer installed packages means fewer things carrying CVEs.
+Alpine ships busybox and musl rather than a full GNU userland. Same reasoning
+as running as `node` rather than root: ship the minimum.
+
+**The trade-off** is musl libc instead of glibc. Packages with native binaries
+sometimes have no prebuilt musl build and either compile from source at install
+time or don't work at all.
+
+We don't hit it, and not by luck — see *bcryptjs over bcrypt*. That choice was
+made to avoid native compilation, which is exactly the class of problem Alpine
+makes worse. The two decisions hold each other up.
+
+**Mailhog is the exception, and it's fine.** It publishes an amd64 image only,
+so on Apple Silicon it runs under emulation and Docker warns about the platform
+mismatch on every `up`. It's a dev-only mail catcher that never ships, and it
+works. Pinning `platform: linux/amd64` would silence the warning on one
+machine and risk breaking it on another architecture, so we leave it.
+
 ### Non-root containers
 
 Both Dockerfiles run as `node` rather than `root`, so a compromised process
