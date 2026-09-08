@@ -322,7 +322,7 @@ To stop: `docker compose down`
   Use `deploy` to apply migrations already in the repo. It only applies pending
   ones and never resets. `migrate dev` is for *creating* a migration after you
   have changed `schema.prisma`, and will offer to reset if it detects drift.
-  Check first with `npx prisma migrate status` — that is read-only.
+  Check first with `docker compose exec backend npx prisma migrate status` — that is read-only.
 
   **If the migration adds or changes a model, also run
   `docker compose exec backend npx prisma generate`.** `migrate deploy` updates
