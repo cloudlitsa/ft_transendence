@@ -134,8 +134,36 @@ prints a `KEEPALIVE` line every few seconds whenever its web UI
 **After pulling a branch that adds a migration:**
 
 ```
-docker compose exec backend npx prisma migrate dev
+docker compose exec backend npx prisma migrate deploy
 ```
+`deploy` applies migrations already in the repo and never resets. `migrate dev`
+is for *creating* one after you've changed `schema.prisma`, and will offer to
+reset if it detects drift. `npx prisma migrate status` is read-only if you just
+want to look.
+
+**If the migration adds or changes a model, also run:**
+
+```
+docker compose exec backend npx prisma generate
+```
+
+`migrate deploy` updates the database. Only `generate` updates the typed
+client. They are separate steps, and pulling a branch needs both.
+
+The Dockerfile does run `npx prisma generate` at build time — but
+`node_modules` is a named volume that mounts over the image, so an existing
+volume keeps serving a client that predates the new model. Rebuilding doesn't
+help, for the same reason a rebuild doesn't pick up a new npm package.
+
+Symptom: the app 500s, and `docker compose logs backend` says
+`Unknown field 'attachments' for select statement on model 'Message'`.
+`docker compose exec backend npx tsc --noEmit` says
+`Property 'attachment' does not exist on type 'PrismaClient'`.
+
+For your editor, run `cd backend && npx prisma generate` on the host too, then
+restart the TS server. Host and container have separate `node_modules` —
+editor clean and app broken, or the reverse, means you fixed one and not the
+other.
 
 ### Writing a raw SQL migration
 
@@ -464,6 +492,26 @@ Docker silently creates missing host directories rather than erroring, then
 the command fails on something downstream that doesn't explain the cause.
 Harmless; `rm -rf` them. Prefer `docker compose run` for ad-hoc commands,
 since it uses the compose file's already-correct paths.
+
+### Right code, wrong build
+
+Live chat looked broken for hours. The Prisma `select` had `alertId: true`.
+The frontend type declared `alertId: string`. Both correct — and the WebSocket
+frame simply didn't contain the field. The container was running different code
+from the source. `docker compose restart backend` fixed it.
+
+**Read the frame before you read either codebase.** It is the only thing that
+tells wrong code from right code in a stale build. If a frame is missing a
+field that both sides agree on, stop looking for the bug in the code.
+
+The same failure came back when a container's generated Prisma client went
+stale after a new model landed — see
+[Database and migrations](#database-and-migrations). Different cause, identical
+shape: source right, running process wrong.
+
+**Diagnose in this order:** backend logs, then `tsc --noEmit` *inside the
+container*, then the editor. The editor is the least reliable of the three —
+it reads the host's `node_modules` and is one build behind by design.
 
 ---
 

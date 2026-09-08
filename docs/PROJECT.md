@@ -1,215 +1,225 @@
 # ft_transcendence — project definition
 
-*PO working doc. Scope, plan and reasoning. For live module status see
-`README.md`; for technical decisions see `docs/DECISIONS.md`.
-Last updated: 23/08/26*
+*PO working doc: scope, reasoning, and the decisions we changed our minds
+about. `README.md` is the reference — what the project is, who did what, how to
+run it, what it claims. This file is why. Technical reasoning lives in
+`docs/DECISIONS.md`.*
+
+*Last updated: 08/09/26*
 
 ## What this is
 
-A web app for sending check-in alerts to a small circle of friends. The idea is simple: sometimes you're not okay, sometimes you just want someone to reach out, and it shouldn't take a phone call or a long explanation. You hit a button, your close friends get notified in real-time, they can acknowledge, and you can chat from there.
+A web app for sending check-in alerts to a small circle of friends. Sometimes
+you're not okay, sometimes you just want someone to reach out, and it shouldn't
+take a phone call or a long explanation. You hit a button, your close friends
+get notified in real time, they can acknowledge, and you can chat from there.
 
-Not an emergency service. We say this clearly in the app and in the ToS. For real emergencies, people call 999/112. This is for the in-between — the stuff that isn't a crisis but you still want someone to notice.
+Not an emergency service. We say so in the app and in the ToS. For real
+emergencies, people call 999/112. This is for the in-between.
 
 ## Why this and not a game
 
-Games eat time. Multiplayer sync is hard, AI opponents are hard, tournaments are CRUD on top of game state. For a short timeline it's too much.
+Games eat time. Multiplayer sync is hard, AI opponents are hard, tournaments
+are CRUD on top of game state. Too much for a short timeline.
 
-A check-in app is mostly:
-- auth + users + friends
-- real-time notifications (one WebSocket layer, used everywhere)
-- a list of alerts in the database
-- a chat
-
-Most modules we claim stack on the same infrastructure. That's the whole point, and it has held up: the WebSocket connection registry built for real-time alerts is also what online status uses, and the profile page counts towards two majors at once.
+A check-in app is mostly auth, users, friends, one WebSocket layer used
+everywhere, a list of alerts, and a chat. Most of the modules we claim stack on
+the same infrastructure, and that has held up: the connection registry built
+for alerts also drives online status, the profile page counts towards two
+majors at once, and the storage engine written for chat attachments is what
+avatars now run on.
 
 ## Target user
 
-Someone in their 20s or 30s with a small group of close friends they actually trust. Not for the general public, not for anonymous strangers, not a social network. Closed circle. Mutual consent to be on each other's lists.
+Someone in their 20s or 30s with a small group of close friends they actually
+trust. Not the general public, not anonymous strangers, not a social network.
+Closed circle, mutual consent to be on each other's lists.
 
-## Core MVP — what the app must do
+## Core MVP
 
-Just these. If we can't do all of these, the project isn't done.
+The bar for "done". If we can't do all of these, the project isn't finished —
+regardless of how many module points we've collected.
 
-- sign up / log in with email + password (mandatory per subject anyway)
+- sign up / log in with email and password
 - profile page with avatar
-- find users, add friends, accept/decline requests, see friends list
-- send a check-in alert ("I'm not okay" / "Need a chat" / "Could someone reach out")
-- friends see the alert in real-time
-- friends can acknowledge → sender sees who has acknowledged
-- friends can chat with the sender from the alert
-- sender can mark themselves "all clear" to close the alert
-- alert history (past alerts visible to sender + people involved)
-- accessible ToS + Privacy pages (mandatory per subject)
+- find users, add friends, accept/decline, see the list
+- send a check-in ("I'm not okay" / "Need a chat" / "Could someone reach out")
+- friends see it in real time
+- friends acknowledge → sender sees who has
+- friends chat with the sender from the alert
+- sender marks themselves all clear
+- alert history for the sender and the people involved
+- accessible ToS and Privacy pages
 
 That's it. Keep it simple.
 
 ## What we are not building
 
-(Just in case we get carried away)
+(Just in case we get carried away.)
 
 - no SMS or phone calls
 - no integration with real emergency services
-- no location sharing (privacy minefield + scope creep)
+- no location sharing (privacy minefield plus scope creep)
 - no native mobile app
 - no AI features
-- no anonymous mode / public alerts
+- no anonymous mode or public alerts
 - no groups beyond the friends list
 - no payments, no premium tier, none of that
 
-If something isn't in the MVP and isn't on the module list below, it doesn't get built.
+If it isn't in the MVP and isn't a claimed module, it doesn't get built.
 
-## Module plan — 14 points
+## Scope decisions
 
-Modules must be fully functional and properly justified or they count as **zero**
-at evaluation, so this list is deliberately limited to things the app needs
-anyway. Live status (done / in progress) lives in `README.md`, not here — this
-section is the plan and the justification.
+The module list, the point calculation and the per-module justification are in
+`README.md` under *Modules* — one authoritative copy, so the two can't drift.
+What's here is the reasoning behind the shape of that list, including the parts
+we got wrong first time.
 
-**Web**
-- Major: Frameworks for both frontend and backend — 2 pts
-- Major: Real-time features with WebSockets — 2 pts *(the core of the app, not an add-on)*
-- Minor: ORM — 1 pt *(we'd use one anyway, just claim it)*
-- Minor: Notification system for create/update/delete actions — 1 pt
-- Minor: PWA with offline support and installability — 1 pt *(closest a web app gets to "lock screen notifications", which is exactly what a check-in app needs)*
-- Minor: Custom design system, 10+ reusable components — 1 pt *(the subject requires a styling solution regardless, so this converts an obligation into a point)*
+### 14 points, deliberately
 
-**User Management**
-- Major: Standard user management (profile, avatar, friends, online status) — 2 pts
-- Major: User interaction (chat, profile, friends) — 2 pts
-- Minor: OAuth — 1 pt
+The minimum. A module that's incomplete at evaluation scores **zero**, so a
+smaller set that all work beats a larger set with a weak link. Everything we
+claim is something the app needs anyway.
 
-**Data and Analytics**
-- Minor: GDPR compliance (data export + delete) — 1 pt *(fits the app's privacy angle; the data here is genuinely sensitive)*
+### File upload — why we changed our minds
 
-**Total: 14 points.**
+It was on the dropped list, and the reason it was dropped still stands as the
+test it had to pass: we build avatar upload anyway inside Standard user
+management, so claiming file upload separately only works if there's real
+substance that isn't the avatar work wearing a different hat.
 
-### Dropped, and why
+It clears that bar. Attachments hang off `Message`, not `User` — an image or a
+PDF on a chat message, with its own validation, storage and deletion story.
 
-- **2FA** (Minor, 1 pt) — schema migration, enrolment flow, second login step, backup codes, and all of it touching the one subsystem that already works. High risk for one point, and it was stalling. Parked, not deleted: it's the first thing to reach for if we need a replacement.
-- **File upload** (Minor, 1 pt) — we're building avatar upload anyway as part of Standard User Management, so claiming it separately would need genuine extra substance (validation, size limits, storage strategy) to survive "does this add real value". Worth revisiting as a **buffer point** if we want to go above 14.
-- **Advanced search** (Minor, 1 pt) — would be forced. Nothing in a closed friends circle needs filtering, sorting and pagination.
+**The duplication challenge answers itself.** Avatar upload didn't become file
+upload. `profile.ts` moved onto the shared storage engine, which is how avatars
+gained a magic-byte check they never had. The module improved the avatar path
+rather than being derived from it, which is the opposite of claiming the same
+work twice.
 
-### The buffer problem — decided: no buffer
+### Still dropped, and why
 
-We are at **exactly 14**, with no slack, and we are staying there.
+- **2FA** (Minor, 1 pt) — schema migration, enrolment flow, second login step,
+  backup codes, all of it touching the one subsystem that already works. High
+  risk for one point, and it was stalling. Parked, not deleted.
+- **Advanced search** (Minor, 1 pt) — would be forced. Nothing in a closed
+  friends circle needs filtering, sorting and pagination.
 
-The eval sheet is explicit that a non-functional or incomplete module scores
-zero, so a single module wobbling on the day drops us to 12 or 13 and we fail.
-The obvious mitigation was a 15th point — **File upload**, **2FA**, or
-**Advanced search**, in that order of preference.
+**Honest note:** "Advanced permissions" is about admin/user/moderator roles
+with CRUD on users. It does *not* fit "friend tiers" naturally, however much we
+wanted it to.
 
-**We are not taking it.** As of 23/08 there are nine days to the team
-deadline, 11 of the 14 points are merged, and the remaining 3 sit in work that
-is still in progress — chat (TRAN-22 backend, TRAN-23 frontend) and OAuth
-(TRAN-21). Adding a fifteenth module would mean starting fresh work while two
-already-claimed modules are still to land: spending scarce time buying
-insurance against a risk smaller than the one we'd be ignoring.
+### The buffer problem — resolved, and not the way we planned
 
-The mitigation is therefore a different shape: **make the 11 merged points
-undeniable, and get the remaining 3 owned.** Concretely —
+We have a fifteenth point. Nobody went and built one.
 
-- every merged module verified end to end and documented in `README.md`, so
-  none of them is the one that wobbles
-- the mandatory requirements cleared (zero console errors, fresh-clone
-  deploy, multi-user concurrency, accessibility pass) — these are pass/fail
-  on the whole project, so they outrank any single point
-- an evaluation dry run booked, with each member able to explain their own
-  work
-- TRAN-21, TRAN-22 and TRAN-23 each with a clear owner and a date, so that if
-  any isn't going to land we drop the module early and deliberately rather
-  than discover it on the day
+Through August the position was exactly 14 with no slack, and a deliberate
+decision not to add a buffer. That was right at the time: three of the fourteen
+were still in flight, and starting fresh work to insure against a smaller risk
+meant taking time from the larger one. The mitigation was to make the merged
+points undeniable and get the outstanding ones owned.
 
-If OAuth or chat is formally written off with a week still to run, revisit
-this — **File upload** remains the cheapest replacement, since avatar upload
-already exists and only needs the validation and storage story documented as
-its own module. That is a decision to take deliberately, not a plan to drift
-into.
+Then file upload got built anyway and turned out to stand on its own. So the
+buffer exists without our having paid for it.
 
-**Important honest note**: the "Advanced permissions" module is about admin/user/moderator roles with CRUD on users — it does NOT fit "friend tiers" naturally.
+**The consequence matters more than the point does. OAuth is no longer
+load-bearing.** For most of this project the biggest risk was that OAuth —
+unowned for weeks, then late — wouldn't land, and that its one point was the
+difference between passing and failing. That's no longer true.
 
-## Tech stack
+### OAuth — conditional, and the condition is GDPR
 
-- Frontend: React + TypeScript + Vite + react-router-dom
-- Backend: Fastify + TypeScript (TypeScript on both sides means shared types)
-- Database: PostgreSQL with Prisma ORM
-- WebSockets: `@fastify/websocket` (agreed — raw WebSocket API, reuses the existing cookie/JWT auth path, no client bundle; rationale in `docs/DECISIONS.md`)
-- Auth: bcryptjs, JWT with httpOnly cookies, Zod validation
-- Deployment: Docker Compose
-- HTTPS: Caddy reverse proxy terminating TLS, the single public entry point
-  (rationale in `docs/DECISIONS.md`)
+OAuth is worth one bonus point. It is not worth one of the fourteen.
 
-Why TypeScript both sides: shared interfaces between frontend and backend save bugs. Why Postgres: relational data (users, friendships, alerts, messages) fits perfectly. Why Prisma: the ORM minor module needs an ORM that's actually used, Prisma makes that obvious.
+**It ships only with the account-deletion fix.** Deletion confirms with a
+password. A Google-only account hasn't got one. GDPR is one of our fourteen and
+a half-working module scores zero, so merging OAuth alone would gain a spare
+point and put a required one at risk.
 
-Full reasoning for these and the security patterns is in `docs/DECISIONS.md`.
+Two conditions:
 
-## Roles
+1. **A confirmation route for accounts with no password.** Agreed 07/09: type
+   DELETE. The password flow is unchanged. Not as strong as re-authenticating
+   with Google — for a password account the confirmation authenticates, for a
+   Google-only account it only confirms intent — and we say that rather than
+   pretend otherwise.
+2. **Login stays quiet.** With `passwordHash` nullable, a Google-only user
+   typing into the password form must still get the generic "Invalid email or
+   password". Saying "this account uses Google" turns login into a way to
+   discover which addresses are Google accounts. *Done in the OAuth PR.*
 
-- **Litsa** — Product Owner + Developer
-- **Maria** — Tech Lead + Developer
-- **Ade** — Project Manager + Developer
-- **Mihaela** — Developer
-- **Muktim** — Developer
+The migration touches the shared `User` model, so everyone re-runs migrations
+when it lands and the fresh-clone test gets re-run after it.
 
-Five people. PO, PM and Tech Lead all double as devs, which the subject
-explicitly allows. Every member needs merged commits they can explain
-individually — see *Risks*.
+**If those aren't met with time to spare, we don't merge it.** Evaluating at 14
+and saying why beats fifteen points with one broken.
 
-## Ways of working
+## Documents
 
-- **Comms:** Slack (primary coordination), Discord (informal)
-- **Board:** Jira (project TRAN)
-- **Git:** feature branches → PR → 1 approving review required → squash and merge → delete branch. See `CONTRIBUTING.md`.
-- **Docs:**
-  - `README.md` — what it is, how to run it, module status and per-module justification
-  - `CONTRIBUTING.md` — branches and PRs
-  - `docs/PROJECT.md` — this file: scope, plan, roles, risks
-  - `docs/DECISIONS.md` — why things are built the way they are, and the trade-offs accepted
-  - `docs/DEVELOPMENT.md` — day-to-day workflow and gotchas
-  - `docs/websocket-demo.md` — reproducible end-to-end demo of the WebSockets module
-  - `docs/tailwind-reference.md` — Tailwind v4 reference (v4 configures differently from v3)
-  - `docs/git-guide.md` — personal git reference
+- `README.md` — what it is, how to run it, who did what, what it claims
+- `CONTRIBUTING.md` — branches, PRs, review
+- `docs/PROJECT.md` — this file: scope, reasoning, risks
+- `docs/DECISIONS.md` — why the code is the way it is, and what we rejected
+- `docs/DEVELOPMENT.md` — day-to-day workflow and the gotchas that cost an afternoon
+- `docs/websocket-demo.md` — reproducible end-to-end demo of the WebSockets module
+- `docs/tailwind-reference.md` — Tailwind v4 reference (v4 differs from v3)
+- `docs/git-guide.md` — personal git reference
+
+Team, roles, tools and working agreements are in `README.md` under *Team
+Information* and *Project Management*.
 
 ## Risks
 
-- **Exactly 14 points, no buffer.** One module failing at evaluation = fail. Mitigation: pick a 15th (see above) once the current work lands.
-- **Team size.** The subject specifies 4–5 people and the eval sheet's first check is that all members are present. Any further drop below four needs resolving with staff, not absorbing quietly.
-- **Uneven contribution.** Every member is asked individually to explain their work, and git history is checked. Everyone needs merged commits, not just assigned tickets.
-- **3 of the 14 points are still in progress.** User Interaction (2 pts) needs chat: TRAN-22 (backend) is in progress, TRAN-23 (frontend) is not yet assigned. OAuth (TRAN-21, 1 pt) is in progress. Together these carry 3 of the 14 points, so this is the project's largest open risk. Each needs a clear owner with capacity and an agreed date after which the module is dropped deliberately rather than discovered incomplete on the day.
-- **PWA push notifications on iOS are flaky.** Documented limitation; scoped out of the PWA module (which covers installability + offline). We surface it in the app rather than cover it up.
+- **The mandatory requirements, not the points.** All fourteen are merged, so
+  what can still sink us are the pass/fail checks that earn nothing: zero
+  console errors in Chrome, the README's required sections including the
+  AI-usage description, fresh-clone deploy, multi-user concurrency,
+  accessibility. These fail the whole project rather than costing one point.
+- **Merged is not validated.** Each module is demonstrated individually and one
+  that wobbles on the day scores zero. The fifteenth buys us one mistake and no
+  more.
+- **The Google app is in Testing mode.** Only allowlisted accounts can sign in,
+  so an evaluator's Google account won't work unless we add it live or publish
+  the app to Production first. Decide before the day, not during it.
+- **PWA push notifications on iOS are flaky.** Documented limitation, scoped
+  out of the module (which covers installability and offline). We surface it in
+  the app rather than cover it up.
 
 ### Closed risks
 
 Kept rather than deleted — the record that a risk was handled is worth as much
 at evaluation as the warning was beforehand.
 
+- **Exactly 14 points with no buffer** — resolved 04/09. File upload landed and
+  stands on its own, so we evaluate at 15 with 14 required, and OAuth moved
+  from load-bearing to optional.
+- **3 of the 14 points in progress** — resolved. Chat merged; the fourteenth is
+  covered by file upload rather than by OAuth.
+- **Uneven contribution** — resolved 07/09, and open longest. The eval sheet
+  asks each member individually to explain their work and checks git history,
+  and one member had nothing merged. He has left the group; the four who remain
+  each have work of their own to demonstrate.
+- **Uploaded files surviving account deletion** — resolved 07/09. Cascade
+  removes rows, not files; deletion now collects filenames before the delete
+  and unlinks after. See `docs/DECISIONS.md`.
 - **HTTPS** — resolved. Caddy terminates TLS as the single public entry point,
-  and the frontend's direct port mapping was removed, so there is no
-  unencrypted route into the app rather than an encrypted one that happens to
-  be preferred.
-- **Legal pages** — resolved. Terms of Service and Privacy Policy merged,
-  linked from a global footer on every page. Both describe rights rather than
-  mechanisms, so they don't go stale when the UI changes.
+  and the frontend's port mapping was removed, so there's no unencrypted route
+  into the app rather than an encrypted one that happens to be preferred.
+- **Legal pages** — resolved. ToS and Privacy merged, linked from a global
+  footer. Both describe rights rather than mechanisms, so they don't go stale
+  when the UI changes.
 - **Project Manager unfilled** — resolved. Ade joined mid-project.
 
 ## Resolved questions
 
-- **Can we claim both Standard user management and User interaction?** Yes — confirmed with pedago. This is what closed the gap from 12 to 14.
-- **Stack** — agreed as above.
+- **Can we claim both Standard user management and User interaction?** Yes,
+  confirmed with Yassir. This is what closed the gap from 12 to 14.
 - **WebSocket library** — `@fastify/websocket`.
-- **Comms / project management** — Slack for coordination, Jira for the board.
-- **Project Manager** — Ade, joined mid-project.
-- **Do we add a 15th point for buffer?** No — see *The buffer problem* above.
-
-## Open questions
-
-- **Who is driving TRAN-23 (chat frontend)?** Unassigned. The backend
-  (TRAN-22) is in progress, but without the frontend the User Interaction
-  major (2 pts) doesn't count.
-- **What is the cut-off date for chat and OAuth (TRAN-21)?** We need a date on
-  which we either have them or drop the module, so the decision is taken with
-  time to spare rather than at the deadline.
-- **TRAN-3 (buffer module) is still open on the board.** Per *The buffer
-  problem* above it should be closed as won't-do, or kept only as a documented
-  fallback if chat or OAuth is formally dropped.
-- **When is the evaluation dry run?** No date set. Every member needs to be
-  able to explain their own work.
+- **Who is driving the chat frontend?** Maria. Merged.
+- **Do we add a 15th point for buffer?** Originally no, now yes via file
+  upload. The original reasoning is kept above rather than deleted, because the
+  change of position is the useful part.
+- **What's the cut-off for OAuth?** Not a cut-off question any more — the
+  module is optional. It merges if the GDPR condition is met with time to
+  spare, and otherwise it doesn't.
+- **How does a Google-only user confirm deletion?** Typed DELETE. Agreed 07/09.

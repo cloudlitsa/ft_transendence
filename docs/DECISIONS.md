@@ -99,8 +99,18 @@ upload and management* section records that in full.
 
 ## Who can see what
 
-> **Status.** These decisions are implemented end to end: the schema, the
-> backend routes, and the chat UI that renders them.
+### The export shows original names, not stored ones
+
+`GET /export` omits `filename` — the internal `<uuid>.<ext>` on disk — and
+keeps `originalName`, which is what the user uploaded and would recognise.
+
+`filename` is an implementation detail, and it's the exact value the
+access-control test uses to prove that a direct request to
+`/api/uploads/<filename>` returns 404. Handing it out in a file the user keeps
+is pointless at best.
+
+It's `omit` rather than `select` so a column added later doesn't silently drop
+out of everyone's export.
 
 ### Chat is a group conversation, not per-friend threads
 
@@ -122,6 +132,28 @@ friends who don't know each other end up sharing a conversation about someone's
 state of mind. Anyone wanting a private word uses another channel. For a closed
 circle of people who all chose each other that's a reasonable default — but it
 is a choice, not an accident of the schema.
+
+### Deleting an account takes the thread with it
+
+Two cascade paths reach `messages`: `sender_id → users`, and
+`alert_id → alerts → users`. Both are `onDelete: Cascade`. So deleting an
+account removes your messages wherever you wrote them, *and* every message in
+an alert you sent, whoever wrote it.
+
+Both directions surprise people. A friend who replied to your check-in loses
+their reply. And you leaving puts gaps in conversations you were only a guest
+in.
+
+The alternative is what most chat apps do — keep other people's messages, and
+keep yours in their threads, on the grounds that a reply is its author's own
+expression. We don't, for two reasons. A check-in thread is a conversation
+about one person's distress, so leaving it readable after they've gone means
+their crisis stays on other people's screens. And erasure is the right we're
+claiming, so an ambiguous case should resolve toward removing more rather than
+less.
+
+The cost is real and falls on someone who didn't delete anything. That's why
+it's stated in the Privacy Policy rather than left to be discovered.
 
 ### Closing an alert stops acknowledgements, not chat
 
@@ -240,6 +272,29 @@ exists (see "Attachments are deletable by their sender").
 `deleted_at` first, then unlinks — here the surviving row is what the UI needs,
 and a leftover file is unreachable once the row says deleted. One rule in both
 directions: put the failure where nobody can see it.
+
+### Account deletion collects filenames before it deletes
+
+`ON DELETE CASCADE` is a Postgres feature. It removes rows and knows nothing
+about the filesystem — so deleting a user wiped the attachment and avatar rows
+and left the files sitting on the volumes.
+
+The rows were the only record of which file belonged to whom. Filenames are
+UUIDs; once the rows are gone there is nothing left to identify the orphans by.
+So `routes/gdpr.ts` collects every live attachment filename and the avatar URL
+**before** `prisma.user.delete`, then unlinks after it commits.
+
+Order matters in both directions. Collect before, or there is nothing left to
+collect. Unlink after, or a delete that fails partway has already destroyed
+files for an account that still exists.
+
+Unlink failures are logged, never thrown — the same rule as the confirmation
+emails. A file that won't unlink must not stop someone deleting their account;
+that would be a worse problem than the one this fixes.
+
+The query filters on `deletedAt: null`, because a soft-deleted attachment had
+its file removed at the time — see "A write spanning disk and database goes to
+disk first".
 
 ### Attachment uploads extend the message endpoint, they don't get their own
 
