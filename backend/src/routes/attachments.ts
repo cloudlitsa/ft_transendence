@@ -167,10 +167,13 @@ export async function attachmentsRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: "Attachment not found" });
     }
 
-    const alertSenderId = await canAccessAlert(attachment.message.alertId, me);
-    if (alertSenderId === null) {
+    // Visibility only. A sender may remove their own attachment from a closed
+    // conversation — that is taking their content back, not adding to it.
+    const access = await canAccessAlert(attachment.message.alertId, me);
+    if (access === null) {
       return reply.code(404).send({ error: "Attachment not found" });
     }
+    const alertSenderId = access.senderId;
 
     if (attachment.message.senderId !== me) {
       return reply.code(403).send({ error: "Only the sender can remove this attachment" });
