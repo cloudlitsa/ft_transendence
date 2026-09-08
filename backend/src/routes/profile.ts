@@ -40,7 +40,7 @@ import {
 // The prefix is a constant because it is used three ways: to build a new URL,
 // and — twice — to turn a stored URL back into a filename when deleting.
 
-const AVATAR_URL_PREFIX = "/api/uploads/";
+export const AVATAR_URL_PREFIX = "/api/uploads/";
 
 
 // ---------- Input validation ----------
