@@ -159,7 +159,7 @@ export default function AlertsPage() {
       ]);
       setMyAlert(alertsRes.myAlert);
       setFriendsAlerts(alertsRes.friendsAlerts);
-      setPastAlerts(alertsRes.pastAlerts);
+      setPastAlerts(alertsRes.pastAlerts ?? []);
       setFriendCount(friendsRes.friends.length);
     } catch (err) {
       const message = (err as Error).message;
@@ -561,10 +561,9 @@ export default function AlertsPage() {
       </section>
 
       {/* ---------- Section 4: past check-ins ---------- */}
-      {/* A closed check-in is listed nowhere else, so without this the
-          conversation is unreachable — the sender loses their link the moment
-          they close, and there is no history page. Read-only: the composer is
-          gone, but an attachment's author can still remove it from here. */}
+      {/* The only route back into a finished conversation: GET /api/alerts
+          returns active alerts only, so nothing else links to a closed one.
+          Read-only, but an attachment's author can still remove it. */}
       <section aria-label="Past check-ins" className="flex flex-col gap-3">
         <Heading level={2}>Past check-ins</Heading>
 
@@ -573,7 +572,7 @@ export default function AlertsPage() {
             Check-ins you were part of will appear here once they're closed.
           </p>
         ) : (
-          <ul className="flex flex-col gap-4">
+          <ul id="past-check-ins" className="flex flex-col gap-4">
             {(showAllPast ? pastAlerts : pastAlerts.slice(0, PAST_PREVIEW)).map((alert) => (
               <li key={alert.id}>
                 <Card>
@@ -618,10 +617,11 @@ export default function AlertsPage() {
               size="sm"
               onClick={() => setShowAllPast((open) => !open)}
               aria-expanded={showAllPast}
+              aria-controls="past-check-ins"
             >
               {showAllPast
                 ? "Show fewer"
-                : `Show all ${pastAlerts.length} past check-ins`}
+                : "Show all past check-ins"}
             </Button>
           </div>
         )}
