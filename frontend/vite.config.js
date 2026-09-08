@@ -36,7 +36,7 @@ export default defineConfig({
         short_name: "Check-in",           // shown under the home-screen icon
         description:
           "Send a check-in to your close friends when you're not okay.",
-        theme_color: "#4f46e5",           // colours the title bar of the installed app
+        theme_color: "#3b55d9",           // colours the title bar of the installed app
         background_color: "#ffffff",      // splash-screen background while it loads
         display: "standalone",            // open in its own window, no browser bar
         start_url: "/",                   // which page opens when launched
