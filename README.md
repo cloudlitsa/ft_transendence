@@ -110,6 +110,20 @@ module tally, and the OAuth account-linking design were all settled that way.
 
 ## 4. Technical Stack
 
+```mermaid
+flowchart LR
+    Browser -->|HTTPS / WSS| Caddy
+
+    subgraph internal["Docker bridge network (no published ports)"]
+        Caddy --> frontend["frontend<br/>React + Vite"]
+        Caddy --> backend["backend<br/>Fastify"]
+        backend --> db[("PostgreSQL<br/>db_data volume")]
+        backend --> mailhog["Mailhog<br/>dev SMTP"]
+        backend --- uploads[("uploads_data<br/>avatars, public")]
+        backend --- private[("attachments_data<br/>private, gated")]
+    end
+```
+
 **Frontend.** React + TypeScript, built with Vite, routed with
 `react-router-dom`, styled with Tailwind CSS v4. `vite-plugin-pwa` generates
 the service worker and manifest.
@@ -168,18 +182,21 @@ infrastructure instead. That overlap is why the scope was achievable.
 
 ## 5. Database Schema
 
+```mermaid
+erDiagram
+    users ||--o{ friendships : "user_id_a / user_id_b"
+    users ||--o{ alerts : sends
+    users ||--o{ acknowledgements : makes
+    users ||--o{ messages : writes
+    alerts ||--o{ acknowledgements : receives
+    alerts ||--o{ messages : contains
+    messages ||--o{ attachments : carries
+```
+
+Every one of those cascades on delete - it's what makes GDPR erasure one operation.
+
 Six tables. Every relationship is a real foreign key, and every one that points
 at a user cascades on delete — which is what makes the GDPR erasure right work.
-
-```
-users ──────┬──< friendships >─── users        (two FKs, one row per pair)
-            │
-            ├──< alerts ──┬──< acknowledgements >── users
-            │             │
-            │             └──< messages ──< attachments
-            │                    │
-            └────────────────────┘  (messages.sender_id)
-```
 
 | Table | What it holds | Key fields |
 |---|---|---|
@@ -307,35 +324,9 @@ To stop: `docker compose down`
 
 ### After pulling someone else's branch
 
-- **New backend dependency** → `docker compose exec backend npm install`,
-  then `docker compose restart backend`
-- **New frontend dependency** → `docker compose exec frontend npm install`,
-  then `docker compose restart frontend`
-
-  A rebuild alone won't pick either of these up. `node_modules` is mounted as a
-  volume that shadows the host directory, so git can't touch it and even
-  `docker compose build --no-cache` doesn't refresh it. The restart matters
-  separately: config files like `vite.config.js` are read once at startup.
-
-- **New migration** → `docker compose exec backend npx prisma migrate deploy`
-
-  Use `deploy` to apply migrations already in the repo. It only applies pending
-  ones and never resets. `migrate dev` is for *creating* a migration after you
-  have changed `schema.prisma`, and will offer to reset if it detects drift.
-  Check first with `docker compose exec backend npx prisma migrate status` — that is read-only.
-
-  **If the migration adds or changes a model, also run
-  `docker compose exec backend npx prisma generate`.** `migrate deploy` updates
-  the database; only `generate` updates the typed client. The Dockerfile
-  generates it at build time, but `node_modules` is a volume that shadows the
-  image, so an existing volume keeps serving the old client. Symptom: the app
-  500s and the backend log says `Unknown field 'x' for select statement on
-  model 'Y'`.
-
-  For your editor, run `cd backend && npx prisma generate` on the host too, then
-  **TypeScript: Restart TS Server**. Host and container have separate
-  `node_modules` — editor clean and app broken, or the reverse, means you fixed
-  one and not the other.
+Pulling a teammate's branch is different from cloning fresh — new
+dependencies, new migrations and a stale generated Prisma client all need
+handling. See `docs/DEVELOPMENT.md`.
 
 ### Troubleshooting
 
