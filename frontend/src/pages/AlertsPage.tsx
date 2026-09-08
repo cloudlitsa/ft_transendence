@@ -97,9 +97,13 @@ const ALERT_TYPES: { value: AlertType; label: string; hint: string }[] = [
   },
 ];
 
-// How many past check-ins to show before the "Show all" button. Two is enough
-// to read as a list without letting the archive outweigh the check-ins that
-// need attention now.
+// How many past check-ins to show before the expand button. Two is enough to
+// read as a list without letting the archive outweigh the check-ins that need
+// attention now — the same reason GET /api/alerts caps pastAlerts at 20.
+//
+// The button counts what clicking it adds, not the total, because the first
+// two are already on screen. It never says "all" either: with the cap in place
+// we cannot promise the list is complete.
 const PAST_PREVIEW = 2;
 
 // Turn a stored value into its display label. Falls back to the raw value so a
@@ -621,7 +625,7 @@ export default function AlertsPage() {
             >
               {showAllPast
                 ? "Show fewer"
-                : "Show all past check-ins"}
+                : `Show ${pastAlerts.length - PAST_PREVIEW} more`}
             </Button>
           </div>
         )}
