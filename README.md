@@ -164,8 +164,8 @@ schema generates a typed client, so a renamed column is a compile error rather
 than a runtime one; queries are parameterised by default; migrations are
 reviewable files in git.
 
-**Tailwind v4** because it gives us design tokens defined once in `@theme`.
-one plugin and one CSS import.
+**Tailwind v4** because it gives us design tokens defined once in `@theme` —
+One plugin and one CSS import.
 
 **Caddy** because it terminates TLS in a few lines and forwards WebSocket
 upgrade headers transparently, so `wss://` works with no extra configuration.
