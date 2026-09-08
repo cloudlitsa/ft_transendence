@@ -131,7 +131,30 @@ export async function alertsRoutes(fastify: FastifyInstance) {
       },
     });
 
-    return reply.send({ myAlert, friendsAlerts });
+    // 4. Closed check-ins I can still reach: mine, or a current friend's that
+    //    I sent, acknowledged or posted in. Newest first, capped.
+    const pastAlerts = await prisma.alert.findMany({
+      where: {
+        status: "closed",
+        senderId: { in: [me, ...friendIds] },
+        OR: [
+          { senderId: me },
+          { acknowledgements: { some: { userId: me } } },
+          { messages: { some: { senderId: me } } },
+        ],
+      },
+      orderBy: { closedAt: "desc" },
+      take: 20,
+      select: {
+        id: true,
+        alertType: true,
+        note: true,
+        closedAt: true,
+        sender: { select: { id: true, displayName: true, avatarUrl: true } },
+      },
+    });
+
+    return reply.send({ myAlert, friendsAlerts, pastAlerts });
   });
 
   // ---------- Validation for :id ----------
