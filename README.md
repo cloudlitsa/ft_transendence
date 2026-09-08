@@ -65,7 +65,7 @@ product, which is why the check-in button is amber rather than emergency-red.
 | Intra login | GitHub | Name | Role(s) | Responsibilities |
 |---|---|---|---|---|
 | `evmouka` | cloudlitsa | Litsa | Product Owner + Developer | Product scope and module strategy, real-time WebSocket layer, alerts, custom design system, HTTPS and proxy setup, code review |
-| `mosokina` | wise_owl| Maria | Tech Lead + Developer | Technical decisions, file upload and management, chat frontend, online status, user management, code review |
+| `mosokina` | wise_owl | Maria | Tech Lead + Developer | Technical decisions, file upload and management, chat frontend, online status, user management, code review |
 | `aaladeok` | Lexymma | Ade | Project Manager + Developer | Board and delivery tracking, chat backend, OAuth |
 | `mtocu` | mihaellatocu | Mihaela | Developer | Terms of Service and Privacy Policy, legal page routing and footer links, review |
 
