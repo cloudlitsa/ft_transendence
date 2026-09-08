@@ -221,6 +221,27 @@ round trip at exactly the moment latency matters. It deliberately matches an
 entry in `GET /api/alerts`'s `friendsAlerts`, so the UI renders it with the
 same component either way.
 
+**Now close it, and the same console prints the withdrawal:**
+
+```bash
+curl -ik -b /tmp/me1.txt -X POST \
+  https://localhost/api/alerts/ALERT_ID/close
+```
+
+```
+received: {"type":"alert:closed","alertId":"..."}
+```
+
+Only the id travels — you2 is removing something it already holds.
+
+In the app, that one event drives two reactions: the check-in leaves you2's
+`/alerts` list, and an open conversation's badge flips to **closed**. Both match
+what a reload would show — `GET /api/alerts` returns active alerts only,
+`GET /alerts/:id` still returns a closed one.
+
+Closing twice returns `404` and broadcasts nothing: the handler only broadcasts
+when a row actually changed.
+
 ---
 
 ## 5. Prove the scoping (the interesting part)
@@ -316,7 +337,7 @@ live connection.
   heartbeat, close/error handling
 - `backend/src/lib/wsRegistry.ts` — connection registry and
   `broadcastToUsers()`
-- `backend/src/routes/alerts.ts` — broadcasts on alert create
+- `backend/src/routes/alerts.ts` — broadcasts on alert create and close
 - `backend/src/lib/friendships.ts` — `getFriendIds()`, shared by the GET
   endpoint and the broadcast
 - `Caddyfile` — routes `/api/*` to the backend and terminates TLS; the

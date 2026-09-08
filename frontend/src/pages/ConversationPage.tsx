@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
 import type { ChatAttachment, ChatMessage, ChatSender  } from "../lib/chat";
@@ -197,32 +197,51 @@ function Attachment({
 interface HeaderAlert {
   note?: string | null;
   status?: string;
-  sender?: { displayName: string; avatarUrl: string | null };
+  sender?: { id: string; displayName: string; avatarUrl: string | null };
 }
 
 export default function ConversationPage() {
   const { id } = useParams();   // reads the ":id" out of the URL
 
-  // TODO(TRAN-22): Option A — the alert object is passed via <Link state> from
-  // AlertsPage. It's undefined on a hard refresh / direct URL (state is lost),
-  // and the header simply hides in that case.
-  const location = useLocation();
-  const alert = (location.state as { alert?: HeaderAlert } | null)?.alert;
-
-  /* ---- Option B (use once GET /alerts/:id exists; delete Option A above) ----
-  // Survives refresh because it re-fetches instead of relying on nav state.
   const [alert, setAlert] = useState<HeaderAlert | undefined>();
   useEffect(() => {
     if (!id) return;
-    api.get<{ alert: HeaderAlert }>(`/alerts/${id}`)
-      .then((res) => setAlert(res.alert))
-      .catch(() => setAlert(undefined));   // header just hides on failure
+    let cancelled = false;
+    api
+      .get<{ alert: HeaderAlert }>(`/alerts/${id}`)
+      .then((res) => {
+        if (!cancelled) setAlert(res.alert);
+      })
+      .catch(() => {
+        // Header hides on failure. An id we can't read is already reported by
+        // the messages fetch below, which owns the page-level error state.
+        if (!cancelled) setAlert(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
-  --------------------------------------------------------------------------- */
 
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const { messages, setMessages, setOpenAlertId, removeAttachment } = useMessages();
+  const { messages, setMessages, setOpenAlertId, removeAttachment, closedAlertId } =
+    useMessages();
+
+  // The sender closed this check-in while we were reading it. Flip the header
+  // in place rather than refetching: "closed" is the whole of what changed,
+  // and this produces exactly the state a reload would.
+  useEffect(() => {
+    if (!closedAlertId || closedAlertId !== id) return;
+    setAlert((cur) =>
+      cur && cur.status !== "closed" ? { ...cur, status: "closed" } : cur,
+    );
+    // alert?.status is in the deps because the close can land while the fetch
+    // above is still in flight: the effect would run against an undefined
+    // alert, no-op, and then be overwritten by a response that still says
+    // "active". Re-running when the status arrives applies it either way; the
+    // guard inside stops it looping.
+  }, [closedAlertId, id, alert?.status]);
+
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -410,7 +429,9 @@ return (
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-alert-700">
-              {alert.sender ? `${alert.sender.displayName} sent a check-in` : "Your check-in"}
+              {alert.sender && alert.sender.id !== user?.id
+                ? `${alert.sender.displayName} sent a check-in`
+                : "Your check-in"}
             </p>
             <Badge tone={alert.status === "closed" ? "neutral" : "success"}>
               {alert.status === "closed" ? "closed" : "active"}
