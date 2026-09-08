@@ -106,10 +106,10 @@ keeps `originalName`, which is what the user uploaded and would recognise.
 
 `filename` is an implementation detail, and it's the exact value the
 access-control test uses to prove that a direct request to
-`/api/uploads/<filename>` returns 404. Handing it out in a file the user keeps
+`/api/account/export` returns 404. Handing it out in a file the user keeps
 is pointless at best.
 
-It's `omit` rather than `select` so a column added later doesn't silently drop
+It's `.map` rather than `select` so a column added later doesn't silently drop
 out of everyone's export.
 
 ### Chat is a group conversation, not per-friend threads

@@ -147,6 +147,12 @@ want to look.
 docker compose exec backend npx prisma generate
 ```
 
+then
+
+'''
+docker compose restart backend
+'''
+
 `migrate deploy` updates the database. Only `generate` updates the typed
 client. They are separate steps, and pulling a branch needs both.
 
