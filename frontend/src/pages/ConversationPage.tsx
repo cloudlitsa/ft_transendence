@@ -458,7 +458,7 @@ return (
                 className={
                   "flex flex-col gap-2 " +
                   (mine
-                    ? "bg-brand-500 text-white rounded-2xl rounded-br-sm px-3 py-2"
+                    ? "bg-brand-600 text-white rounded-2xl rounded-br-sm px-3 py-2"
                     : "bg-surface-sunken border border-line rounded-2xl rounded-bl-sm px-3 py-2")
                 }
               >
