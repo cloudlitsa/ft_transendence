@@ -620,8 +620,8 @@ module requires an ORM that's genuinely used, and Prisma makes that visible.
 ### Workbox logs in the dev service worker
 
 The console shows Workbox precache misses for `/api/*` routes. They are
-`console.debug` from the service worker. The messages are correct 
-behaviour: API responses are not precached, so the request falls through 
+`console.debug` from the service worker. The messages are correct
+behaviour: API responses are not precached, so the request falls through
 to the network.
 
 The eval sheet allows minor third-party warnings if explained; this is
