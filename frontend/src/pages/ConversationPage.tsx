@@ -112,7 +112,11 @@ function Attachment({
         {/* Wrapped in a link so the full-size image is one click away — the
             thumbnail is capped at max-h-72 so a tall photo can't take over
             the whole conversation. */}
-        <a href={href} target="_blank" rel="noreferrer" className="block">
+        <a href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+        >
           <img
             src={href}
             // The caption sits right beside this in the bubble and is already
@@ -165,7 +169,10 @@ function Attachment({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="min-w-0 flex-1 text-sm underline"
+        className={
+          "min-w-0 flex-1 rounded text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+          (mine ? "focus-visible:ring-white" : "focus-visible:ring-brand-500")
+        }
       >
         {/* truncate + min-w-0 so a long filename can't widen the bubble */}
         <span className="block truncate">{attachment.originalName}</span>
@@ -183,7 +190,8 @@ function Attachment({
           className={
             "grid size-6 shrink-0 place-items-center rounded-full " +
             (mine ? "text-white/80 hover:bg-white/20" : "text-ink-muted hover:bg-surface-sunken") +
-            " focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 " +
+            " focus:outline-none focus-visible:ring-2 " +
+            (mine ? "focus-visible:ring-white " : "focus-visible:ring-brand-500 ") +
             "disabled:opacity-50 disabled:cursor-not-allowed"
           }
         >
