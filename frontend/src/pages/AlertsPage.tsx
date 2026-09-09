@@ -368,6 +368,7 @@ export default function AlertsPage() {
               </span>
               <textarea
                 name="note"
+                aria-describedby="note-count"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={500} // matches the backend's .max(500)
@@ -379,7 +380,7 @@ export default function AlertsPage() {
             {/* Live count, so the limit is visible before it bites.
                 -mt-3 pulls it up against the textarea it belongs to, undoing
                 most of the form's gap-4 for this one pairing. */}
-            <p className="-mt-3 text-right text-sm text-ink-muted">
+            <p id="note-count" className="-mt-3 text-right text-sm text-ink-muted">
               {note.length}/500
             </p>
  
