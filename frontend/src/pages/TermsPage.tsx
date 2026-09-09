@@ -6,7 +6,7 @@ export default function TermsPage() {
       <header style={{ marginBottom: "2rem" }}>
         <h1 style={{ marginBottom: "0.5rem" }}>Terms of Service</h1>
         <p style={{ color: "#666", fontSize: "0.9rem" }}>
-          Last updated: August 2026 · Effective immediately
+          Last updated: September 2026 · Effective immediately
         </p>
       </header>
 
@@ -50,7 +50,7 @@ export default function TermsPage() {
             <strong>Friend Relationships:</strong> Both parties must explicitly agree to establish a friendship. You cannot broadcast check-ins to arbitrary or non-consenting users.
           </li>
           <li>
-            <strong>Visibility:</strong> Your active check-in alerts, notes, acknowledgements, and related chat messages are accessible only to you and your confirmed friends.
+            <strong>Visibility:</strong> Your active check-in alerts, notes, acknowledgements, related chat messages, and file attachments are accessible only to you and your confirmed friends.
           </li>
           <li>
             <strong>Unfriending:</strong> Either party may terminate a friendship at any time. Doing so immediately revokes access to each other's active alerts and future notifications.
@@ -93,7 +93,7 @@ export default function TermsPage() {
       <section style={{ marginBottom: "2rem" }}>
         <h2>6. Account Termination and Right to Erasure</h2>
         <p>
-          You may stop using Check-in at any time. Under our GDPR compliance framework, you have the absolute right to permanently delete your account and all associated records (friendships, alerts, acknowledgements, and messages).
+          You may stop using Check-in at any time. Under our GDPR compliance framework, you have the absolute right to permanently delete your account and all associated records (friendships, alerts, acknowledgements, messages, uploaded files, and avatars) from our database and our file storage.
         </p>
       </section>
 

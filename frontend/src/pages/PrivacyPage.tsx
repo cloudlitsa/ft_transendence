@@ -6,7 +6,7 @@ export default function PrivacyPage() {
       <header style={{ marginBottom: "2rem" }}>
         <h1 style={{ marginBottom: "0.5rem" }}>Privacy Policy</h1>
         <p style={{ color: "#666", fontSize: "0.9rem" }}>
-          Last updated: August 2026 · Compliant with General Data Protection Regulation (GDPR)
+          Last updated: September 2026 · Compliant with General Data Protection Regulation (GDPR)
         </p>
       </header>
 
@@ -25,7 +25,7 @@ export default function PrivacyPage() {
         <p>We only collect data strictly necessary to operate the service:</p>
         <ul>
           <li>
-            <strong>Account Data:</strong> Your email address, display name, avatar image URL (if provided), and a salted password hash. We <em>never</em> store your plaintext password.
+            <strong>Account Data:</strong> Your email address, display name, profile avatar (if uploaded), and a salted password hash. We <em>never</em> store your plaintext password.
           </li>
           <li>
             <strong>Relationship Data:</strong> Confirmed friendships and pending friend invitations, including timestamps and who initiated the request.
@@ -35,6 +35,9 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Responses & Messages:</strong> Acknowledgements sent or received (<em>"I see you"</em> timestamps) and chat messages associated with an active or past check-in thread.
+          </li>
+          <li>
+            <strong>Uploaded Files & Attachments:</strong> Files you choose to upload and share within conversations (images and PDF documents attached to messages) and profile avatars, along with file metadata (original filename, MIME type, file size, and upload timestamp).
           </li>
         </ul>
       </section>
@@ -83,7 +86,7 @@ export default function PrivacyPage() {
             <strong>Database Query Scoping:</strong> Sensitive fields (such as password hashes) are explicitly excluded from database queries and can never leak into API responses or data exports.
           </li>
           <li>
-            <strong>Access Control:</strong> Alerts and messages are scoped strictly to confirmed friendships via database-level checks.
+            <strong>Access Control & Private File Storage:</strong> Alerts and messages are scoped strictly to confirmed friendships via database-level checks. Uploaded message attachments are stored in private file storage outside public web roots and are accessible only to authorized participants in that check-in conversation.
           </li>
         </ul>
       </section>
@@ -95,10 +98,12 @@ export default function PrivacyPage() {
         </p>
         <ul>
           <li>
-            <strong>Right of Access & Data Portability (Article 15 & 20):</strong> You have the right to obtain and download a complete, machine-readable JSON copy of all data stored in relation to your account (account profile, friendships, alerts, acknowledgements, and messages).
+            <strong>Right of Access & Data Portability (Article 15 & 20):</strong> You have the right to obtain and download a complete, machine-readable JSON copy of all data stored in relation to your account (account profile, friendships, alerts, acknowledgements, messages, and uploaded file attachments).
           </li>
           <li>
-            <strong>Right to Erasure / "Right to be Forgotten" (Article 17):</strong> You have the right to permanently delete your account and all associated data. When an account is deleted, a cascading deletion immediately and permanently removes your user record, friendships, alerts, acknowledgements, and messages from our database.
+            <strong>Right to Erasure / "Right to be Forgotten" (Article 17):</strong> You have the right to permanently delete your account and all associated data. When an account is deleted, a cascading deletion immediately and permanently removes your user record, friendships, alerts, acknowledgements, messages, uploaded files, and avatars from our database and our file storage.
+            <br />
+            Please note that deleting an account also removes that user's messages and attachments from check-in conversations started by other people. Consequently, if a friend deletes their account, messages they wrote in your check-in threads will disappear from your thread as well.
           </li>
         </ul>
       </section>
@@ -106,7 +111,7 @@ export default function PrivacyPage() {
       <section style={{ marginBottom: "2rem" }}>
         <h2>7. Data Retention</h2>
         <p>
-          Your data is retained only for as long as your account remains active. When you delete your account, all personal data is permanently and irreversibly purged from our database immediately.
+          Your data is retained only for as long as your account remains active. When you delete your account, all personal data and records — including your user profile, friendships, alerts, acknowledgements, messages, uploaded files, and avatars — are permanently and irreversibly purged from our database and our file storage immediately.
         </p>
       </section>
 
