@@ -42,7 +42,7 @@ function Avatar({ user }: { user: ChatSender }) {
   return user.avatarUrl ? (
     <img src={user.avatarUrl} alt="" className="size-7 rounded-full object-cover" />
   ) : (
-    <span className="size-7 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-semibold">
+    <span aria-hidden="true" className="size-7 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-semibold">
       {initials}
     </span>
   );
@@ -120,7 +120,7 @@ function Attachment({
             // announces that an image is present and names it, without
             // repeating the caption.
             alt={attachment.originalName}
-            loading="lazy"
+            loading="eager" // the bubble is already on screen, so load it now
             className="max-h-72 w-auto max-w-full rounded-lg"
           />
         </a>
@@ -249,7 +249,7 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");      // what's currently typed in the box
   const [sending, setSending] = useState(false); // true while a send is in flight
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLLIElement>(null);
 
   // The chosen image, before it is sent.
   //
@@ -442,7 +442,7 @@ return (
       </Card>
     )}
 
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-3" role="log" aria-live="polite">
       {messages.map((m) => {
         const mine = m.sender.id === user?.id;
         return (
@@ -482,7 +482,7 @@ return (
           </li>
         );
       })}
-      <div ref={bottomRef} />
+      <li aria-hidden="true" ref={bottomRef} />
     </ul>
 
     {/* The whole composer goes, file picker included — disabling only Send

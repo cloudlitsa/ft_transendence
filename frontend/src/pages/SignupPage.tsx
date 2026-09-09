@@ -55,7 +55,7 @@ export default function SignupPage() {
         <Input
           label="Display name"
           type="text"
-          autoComplete="nickname"
+          autoComplete="off"
           value={displayName}
           error={fieldErrors.displayName}
           onChange={(e) => setDisplayName(e.target.value)}
