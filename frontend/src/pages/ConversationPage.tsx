@@ -485,6 +485,20 @@ return (
       <div ref={bottomRef} />
     </ul>
 
+    {/* The whole composer goes, file picker included — disabling only Send
+        would let someone attach an image and then find no way to send it.
+
+        `?.` matters: if the alert failed to load, status is undefined and the
+        composer stays. The server refuses either way (409), and guessing
+        "closed" would lock someone out over one failed request. */}
+    {alert?.status === "closed" ? (
+      <p
+        role="status"
+        className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm text-ink-muted"
+      >
+        This check-in was closed. You can still read the conversation.
+      </p>
+    ) : (
     <form onSubmit={send} className="flex flex-col gap-2">
       {/* The chosen file, before sending. Keyed off `file` rather than
           `preview`, because a PDF has no preview URL — it gets a document
@@ -591,6 +605,7 @@ return (
         </Button>
       </div>
     </form>
+    )}
   </main>
 );
 }

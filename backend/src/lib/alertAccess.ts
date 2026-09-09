@@ -4,33 +4,35 @@
 // drift apart on who is allowed to see a conversation. Chat messages and the
 // images inside them have exactly one audience rule between them.
 
+import type { AlertStatus } from "@prisma/client";
 import { prisma } from "../prisma.js";
 
+export type AlertAccess = {
+  /** Callers need this to work out a broadcast audience. */
+  senderId: string;
+  /** The Prisma enum, so a typo in a comparison fails to compile. */
+  status: AlertStatus;
+};
+
 /**
- * May `me` read and post in this alert's conversation?
+ * May `me` see this alert's conversation? Yes if the alert exists and `me` is
+ * its sender or an accepted friend of the sender.
  *
- * Access is granted when the alert exists AND either:
+ * Visibility only. Status is reported, not enforced — a closed conversation is
+ * still readable, so only POST /messages acts on it. Enforcing it here would
+ * take the history down with the composer.
  *
- *     - `me` is the alert's sender, or
- *     - `me` is an accepted friend of the sender
- *
- * The alert's status is deliberately not checked: closing an alert stops
- * acknowledgements, not the conversation.
- *
- * Returns the sender's id on success, because callers need it to work out the
- * broadcast audience. Returns null for every kind of refusal — and callers
- * turn all of them into the SAME 404, whether the alert doesn't exist, isn't
- * yours, or belongs to a stranger. Distinguishable answers would let someone
- * probe for which alert ids are real.
+ * Returns null for every refusal, and callers turn all of them into the same
+ * 404: distinguishable answers would let someone probe which alert ids exist.
  */
-export async function canAccessAlert(alertId: string, me: string): Promise<string | null> {
+export async function canAccessAlert(alertId: string, me: string): Promise<AlertAccess | null> {
   const alert = await prisma.alert.findUnique({
     where: { id: alertId },
-    select: { senderId: true },
+    select: { senderId: true, status: true },
   });
   if (!alert) return null;
 
-  if (alert.senderId === me) return alert.senderId;
+  if (alert.senderId === me) return alert;
 
   // A friendship is stored as ONE row per pair, with the smaller UUID always
   // in user_id_a (see DATA-MODEL.md). So the two ids get sorted before the
@@ -44,5 +46,5 @@ export async function canAccessAlert(alertId: string, me: string): Promise<strin
   // Pending and blocked are both "no". Only accepted grants access.
   if (!friendship || friendship.status !== "accepted") return null;
 
-  return alert.senderId;
+  return alert;
 }

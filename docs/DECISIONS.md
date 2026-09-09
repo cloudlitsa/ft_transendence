@@ -155,15 +155,29 @@ less.
 The cost is real and falls on someone who didn't delete anything. That's why
 it's stated in the Privacy Policy rather than left to be discovered.
 
-### Closing an alert stops acknowledgements, not chat
+### Closing an alert ends its conversation
 
-Once an alert is closed nobody else can acknowledge it, but the conversation
-stays open and messages can still be posted.
+A closed check-in accepts no new messages (`409`), but stays readable and is
+listed under *Past check-ins* on the alerts page.
 
-Status describes the *alert*; the conversation belongs to the *people in it*,
-and the useful part often starts after someone says they're alright. There's
-nothing extra to build for this — chat access derives from the alert's
-audience, not from its status.
+The alert is what grants permission to talk, so withdrawing it withdraws the
+permission. Leaving the chat open would be one-sided in practice: closing
+removes the sender's link to the thread, so a friend with the tab still open
+could keep posting into a conversation the sender can no longer reach.
+
+The status check lives in `POST /messages` alone, not in `canAccessAlert` —
+that helper is shared with the message GET and both attachment routes, so
+history, images and an author's own attachment delete all keep working.
+
+`409` rather than the usual `404`: the caller can already see `status: "closed"`
+from `GET /api/alerts/:id`, so a 404 would hide nothing.
+
+### Past check-ins show only the ones you took part in
+
+`pastAlerts` lists closed alerts you sent, acknowledged or posted in — not every
+closed alert you could once see. The live list shows every friend's active
+check-in because that is a "someone needs you now" signal; a browsable record of
+every friend's past bad days is a different thing.
 
 ### Chat access doesn't require acknowledging first
 
