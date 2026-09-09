@@ -367,6 +367,7 @@ export default function AlertsPage() {
                 Add a note (optional)
               </span>
               <textarea
+                name="note"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={500} // matches the backend's .max(500)
