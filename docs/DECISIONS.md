@@ -617,6 +617,16 @@ surprise. Postgres because the data is relational — users, friendships,
 alerts, acknowledgements, messages are all joins. Prisma because the ORM
 module requires an ORM that's genuinely used, and Prisma makes that visible.
 
+### Workbox logs in the dev service worker
+
+The console shows Workbox precache misses for `/api/*` routes. They are
+`console.debug` from the service worker. The messages are correct 
+behaviour: API responses are not precached, so the request falls through 
+to the network.
+
+The eval sheet allows minor third-party warnings if explained; this is
+the explanation.
+
 ### `startTime` TypeError from DevTools live metrics
 
 An `Uncaught TypeError: Cannot read properties of undefined (reading
@@ -628,7 +638,7 @@ change.
 
 It is not in our dependency tree — `npm ls web-vitals` returns nothing —
 and it does not reproduce on a static page with no soft navigations.
-It only exists while DevTools is open..
+It only exists while DevTools is open.
 
 ---
 
