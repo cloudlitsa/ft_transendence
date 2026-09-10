@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef, type ChangeEvent, type FormEvent } from "react";
-import { useParams, useLocation } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Spinner from "../components/ui/Spinner";
 import type { ChatAttachment, ChatMessage, ChatSender  } from "../lib/chat";
@@ -42,7 +42,7 @@ function Avatar({ user }: { user: ChatSender }) {
   return user.avatarUrl ? (
     <img src={user.avatarUrl} alt="" className="size-7 rounded-full object-cover" />
   ) : (
-    <span className="size-7 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-semibold">
+    <span aria-hidden="true" className="size-7 rounded-full bg-brand-100 text-brand-700 grid place-items-center text-xs font-semibold">
       {initials}
     </span>
   );
@@ -112,7 +112,11 @@ function Attachment({
         {/* Wrapped in a link so the full-size image is one click away — the
             thumbnail is capped at max-h-72 so a tall photo can't take over
             the whole conversation. */}
-        <a href={href} target="_blank" rel="noreferrer" className="block">
+        <a href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="block rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+        >
           <img
             src={href}
             // The caption sits right beside this in the bubble and is already
@@ -120,7 +124,7 @@ function Attachment({
             // announces that an image is present and names it, without
             // repeating the caption.
             alt={attachment.originalName}
-            loading="lazy"
+            loading="eager" // the bubble is already on screen, so load it now
             className="max-h-72 w-auto max-w-full rounded-lg"
           />
         </a>
@@ -165,7 +169,10 @@ function Attachment({
         href={href}
         target="_blank"
         rel="noreferrer"
-        className="min-w-0 flex-1 text-sm underline"
+        className={
+          "min-w-0 flex-1 rounded text-sm underline focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 " +
+          (mine ? "focus-visible:ring-white" : "focus-visible:ring-brand-500")
+        }
       >
         {/* truncate + min-w-0 so a long filename can't widen the bubble */}
         <span className="block truncate">{attachment.originalName}</span>
@@ -183,7 +190,8 @@ function Attachment({
           className={
             "grid size-6 shrink-0 place-items-center rounded-full " +
             (mine ? "text-white/80 hover:bg-white/20" : "text-ink-muted hover:bg-surface-sunken") +
-            " focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 " +
+            " focus:outline-none focus-visible:ring-2 " +
+            (mine ? "focus-visible:ring-white " : "focus-visible:ring-brand-500 ") +
             "disabled:opacity-50 disabled:cursor-not-allowed"
           }
         >
@@ -197,32 +205,51 @@ function Attachment({
 interface HeaderAlert {
   note?: string | null;
   status?: string;
-  sender?: { displayName: string; avatarUrl: string | null };
+  sender?: { id: string; displayName: string; avatarUrl: string | null };
 }
 
 export default function ConversationPage() {
   const { id } = useParams();   // reads the ":id" out of the URL
 
-  // TODO(TRAN-22): Option A — the alert object is passed via <Link state> from
-  // AlertsPage. It's undefined on a hard refresh / direct URL (state is lost),
-  // and the header simply hides in that case.
-  const location = useLocation();
-  const alert = (location.state as { alert?: HeaderAlert } | null)?.alert;
-
-  /* ---- Option B (use once GET /alerts/:id exists; delete Option A above) ----
-  // Survives refresh because it re-fetches instead of relying on nav state.
   const [alert, setAlert] = useState<HeaderAlert | undefined>();
   useEffect(() => {
     if (!id) return;
-    api.get<{ alert: HeaderAlert }>(`/alerts/${id}`)
-      .then((res) => setAlert(res.alert))
-      .catch(() => setAlert(undefined));   // header just hides on failure
+    let cancelled = false;
+    api
+      .get<{ alert: HeaderAlert }>(`/alerts/${id}`)
+      .then((res) => {
+        if (!cancelled) setAlert(res.alert);
+      })
+      .catch(() => {
+        // Header hides on failure. An id we can't read is already reported by
+        // the messages fetch below, which owns the page-level error state.
+        if (!cancelled) setAlert(undefined);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [id]);
-  --------------------------------------------------------------------------- */
 
   const { user } = useAuth();      // to tell my messages from everyone else's
 
-  const { messages, setMessages, setOpenAlertId, removeAttachment } = useMessages();
+  const { messages, setMessages, setOpenAlertId, removeAttachment, closedAlertId } =
+    useMessages();
+
+  // The sender closed this check-in while we were reading it. Flip the header
+  // in place rather than refetching: "closed" is the whole of what changed,
+  // and this produces exactly the state a reload would.
+  useEffect(() => {
+    if (!closedAlertId || closedAlertId !== id) return;
+    setAlert((cur) =>
+      cur && cur.status !== "closed" ? { ...cur, status: "closed" } : cur,
+    );
+    // alert?.status is in the deps because the close can land while the fetch
+    // above is still in flight: the effect would run against an undefined
+    // alert, no-op, and then be overwritten by a response that still says
+    // "active". Re-running when the status arrives applies it either way; the
+    // guard inside stops it looping.
+  }, [closedAlertId, id, alert?.status]);
+
   const toast = useToast();
 
   const [loading, setLoading] = useState(true);
@@ -230,7 +257,7 @@ export default function ConversationPage() {
   const [error, setError] = useState<string | null>(null);
   const [draft, setDraft] = useState("");      // what's currently typed in the box
   const [sending, setSending] = useState(false); // true while a send is in flight
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const bottomRef = useRef<HTMLLIElement>(null);
 
   // The chosen image, before it is sent.
   //
@@ -410,7 +437,9 @@ return (
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <p className="font-semibold text-alert-700">
-              {alert.sender ? `${alert.sender.displayName} sent a check-in` : "Your check-in"}
+              {alert.sender && alert.sender.id !== user?.id
+                ? `${alert.sender.displayName} sent a check-in`
+                : "Your check-in"}
             </p>
             <Badge tone={alert.status === "closed" ? "neutral" : "success"}>
               {alert.status === "closed" ? "closed" : "active"}
@@ -421,7 +450,7 @@ return (
       </Card>
     )}
 
-    <ul className="flex flex-col gap-3">
+    <ul className="flex flex-col gap-3" role="log" aria-live="polite">
       {messages.map((m) => {
         const mine = m.sender.id === user?.id;
         return (
@@ -437,7 +466,7 @@ return (
                 className={
                   "flex flex-col gap-2 " +
                   (mine
-                    ? "bg-brand-500 text-white rounded-2xl rounded-br-sm px-3 py-2"
+                    ? "bg-brand-600 text-white rounded-2xl rounded-br-sm px-3 py-2"
                     : "bg-surface-sunken border border-line rounded-2xl rounded-bl-sm px-3 py-2")
                 }
               >
@@ -461,9 +490,23 @@ return (
           </li>
         );
       })}
-      <div ref={bottomRef} />
+      <li aria-hidden="true" ref={bottomRef} />
     </ul>
 
+    {/* The whole composer goes, file picker included — disabling only Send
+        would let someone attach an image and then find no way to send it.
+
+        `?.` matters: if the alert failed to load, status is undefined and the
+        composer stays. The server refuses either way (409), and guessing
+        "closed" would lock someone out over one failed request. */}
+    {alert?.status === "closed" ? (
+      <p
+        role="status"
+        className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm text-ink-muted"
+      >
+        This check-in was closed. You can still read the conversation.
+      </p>
+    ) : (
     <form onSubmit={send} className="flex flex-col gap-2">
       {/* The chosen file, before sending. Keyed off `file` rather than
           `preview`, because a PDF has no preview URL — it gets a document
@@ -570,6 +613,7 @@ return (
         </Button>
       </div>
     </form>
+    )}
   </main>
 );
 }

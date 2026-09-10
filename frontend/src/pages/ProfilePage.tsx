@@ -189,6 +189,7 @@ export default function ProfilePage() {
           <input
             ref={fileInputRef}
             type="file"
+            name="avatar"
             accept="image/jpeg,image/png,image/webp"
             onChange={onPick}
             tabIndex={-1}
@@ -223,7 +224,7 @@ export default function ProfilePage() {
             <Input
               label="Display name"
               type="text"
-              autoComplete="nickname"
+              autoComplete="off"
               value={name}
               maxLength={50}
               onChange={(e) => setName(e.target.value)}

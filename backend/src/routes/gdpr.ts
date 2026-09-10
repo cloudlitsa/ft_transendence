@@ -5,6 +5,9 @@ import { AUTH_COOKIE } from "../lib/auth.js";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
 import { sendMail } from "../lib/mail.js";
+import { ATTACHMENTS_DIR, PUBLIC_UPLOADS_DIR, removeFile } from "../lib/fileStorage.js";
+import { AVATAR_URL_PREFIX } from "./profile.js";
+
 
 export async function gdprRoutes(fastify: FastifyInstance) {
   // Every route in this file requires the user to be logged in.
@@ -30,8 +33,12 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     const alerts = await prisma.alert.findMany({ where: { senderId: me } });
     const acknowledgements = await prisma.acknowledgement.findMany({ where: { userId: me } });
     const messages = await prisma.message.findMany({ where: { senderId: me } });
+    // Everything except `filename` — that's the internal <uuid>.<ext> on disk, not something the user uploaded or would recognise.
+    const attachments = (await prisma.attachment.findMany({
+      where: { message: { senderId: me } },
+    })).map(({ filename, ...rest }) => rest);
 
-    const payload = { exportedAt: new Date().toISOString(), user, friendships, alerts, acknowledgements, messages};
+    const payload = { exportedAt: new Date().toISOString(), user, friendships, alerts, acknowledgements, messages, attachments };
     
     // Confirmation email for the export (fire-and-forget: never block the export).
     if (user) {
@@ -67,7 +74,7 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     // 2. Fetch what we need to confirm identity and to email afterwards.
     const user = await prisma.user.findUnique({
       where: { id: me },
-      select: { passwordHash: true, email: true, displayName: true },
+      select: { passwordHash: true, email: true, displayName: true, avatarUrl: true },
     });
     if (!user) {
       return reply.code(404).send({ error: "Account not found" });
@@ -93,12 +100,37 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: "Email confirmation does not match" });
       }
     }
+<<<<<<< HEAD
 
     // 4. Confirmed — delete (cascade wipes everything).
     await prisma.user.delete({ where: { id: me } });
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
     // Confirmation email (user captured above, before delete).
+=======
+    // 4. collect all the attachments that will be deleted (for cleanup after the DB delete)
+    const doomed = await prisma.attachment.findMany({
+      where: {
+        deletedAt: null,
+        OR: [{ message: { senderId: me } }, { message: { alert: { senderId: me } } }],
+      },
+      select: { filename: true },
+    });
+    // 5. confirmed — delete (cascade wipes everything)
+    await prisma.user.delete({ where: { id: me } });
+    reply.clearCookie(AUTH_COOKIE, { path: "/" });
+
+    for (const { filename } of doomed) {
+      await removeFile(ATTACHMENTS_DIR, filename);
+    }
+    if (user.avatarUrl?.startsWith(AVATAR_URL_PREFIX)) {
+      await removeFile(
+        PUBLIC_UPLOADS_DIR,
+        user.avatarUrl.slice(AVATAR_URL_PREFIX.length),
+      ).catch((err) => request.log.error({ err }, "avatar file left behind"));
+    }
+    // Confirmation email for the deletion (user captured above, before delete).
+>>>>>>> origin/main
     sendMail(
       user.email,
       "Your account has been deleted",

@@ -3,6 +3,7 @@ import { api } from "../lib/api";
 import { useToast } from "../components/ToastProvider.tsx";
 import { Link } from "react-router-dom";
 import { useAlerts } from "../lib/AlertsContext.tsx";
+import { useAuth } from "../lib/AuthContext.tsx";
 
 import Button from "../components/ui/Button.tsx";
 import Card from "../components/ui/Card.tsx";
@@ -51,9 +52,21 @@ export interface FriendAlert {
   acknowledgements: { acknowledgedAt: string }[];
 }
 
+// A closed check-in I was part of. No acknowledgements: the row is a way back
+// into the conversation, not something to act on. closedAt is nullable in the
+// schema, so it is nullable here too.
+export interface PastAlert {
+  id: string;
+  alertType: AlertType;
+  note: string | null;
+  closedAt: string | null;
+  sender: AlertUser;
+}
+
 interface AlertsResponse {
   myAlert: MyAlert | null;
   friendsAlerts: FriendAlert[];
+  pastAlerts: PastAlert[];
 }
 
 // We also need the friends list, but only its length — to tell "you have no
@@ -84,6 +97,15 @@ const ALERT_TYPES: { value: AlertType; label: string; hint: string }[] = [
   },
 ];
 
+// How many past check-ins to show before the expand button. Two is enough to
+// read as a list without letting the archive outweigh the check-ins that need
+// attention now — the same reason GET /api/alerts caps pastAlerts at 20.
+//
+// The button counts what clicking it adds, not the total, because the first
+// two are already on screen. It never says "all" either: with the cap in place
+// we cannot promise the list is complete.
+const PAST_PREVIEW = 2;
+
 // Turn a stored value into its display label. Falls back to the raw value so a
 // new enum member added to the backend shows up as itself rather than blank.
 function labelFor(type: AlertType): string {
@@ -103,7 +125,13 @@ export default function AlertsPage() {
   // ---------- State ----------
   const [myAlert, setMyAlert] = useState<MyAlert | null>(null);
   const { friendsAlerts, setFriendsAlerts, ackVersion } = useAlerts();
+  const [pastAlerts, setPastAlerts] = useState<PastAlert[]>([]);
+  // Past check-ins are a reference, not something to act on, so only the most
+  // recent few are shown until asked for. Collapsed by default rather than
+  // hidden entirely: an empty-looking section reads as a broken feature.
+  const [showAllPast, setShowAllPast] = useState(false);
   const [friendCount, setFriendCount] = useState(0);
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
 
   // Form state for the send-an-alert section. `null` means nothing chosen yet,
@@ -135,6 +163,7 @@ export default function AlertsPage() {
       ]);
       setMyAlert(alertsRes.myAlert);
       setFriendsAlerts(alertsRes.friendsAlerts);
+      setPastAlerts(alertsRes.pastAlerts ?? []);
       setFriendCount(friendsRes.friends.length);
     } catch (err) {
       const message = (err as Error).message;
@@ -338,6 +367,8 @@ export default function AlertsPage() {
                 Add a note (optional)
               </span>
               <textarea
+                name="note"
+                aria-describedby="note-count"
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
                 maxLength={500} // matches the backend's .max(500)
@@ -349,7 +380,7 @@ export default function AlertsPage() {
             {/* Live count, so the limit is visible before it bites.
                 -mt-3 pulls it up against the textarea it belongs to, undoing
                 most of the form's gap-4 for this one pairing. */}
-            <p className="-mt-3 text-right text-sm text-ink-muted">
+            <p id="note-count" className="-mt-3 text-right text-sm text-ink-muted">
               {note.length}/500
             </p>
  
@@ -444,7 +475,6 @@ export default function AlertsPage() {
                 </Button>
                 <Link
                   to={`/alerts/${myAlert.id}`}
-                  state={{ alert: myAlert }}
                   className="font-medium text-brand-600 underline"
                 >
                   Open conversation →
@@ -522,7 +552,6 @@ export default function AlertsPage() {
                         )}
                         <Link
                           to={`/alerts/${alert.id}`}
-                          state={{ alert }}
                           className="font-medium text-brand-600 underline"
                         >
                           Open conversation →
@@ -534,6 +563,73 @@ export default function AlertsPage() {
               );
             })}
           </ul>
+        )}
+      </section>
+
+      {/* ---------- Section 4: past check-ins ---------- */}
+      {/* The only route back into a finished conversation: GET /api/alerts
+          returns active alerts only, so nothing else links to a closed one.
+          Read-only, but an attachment's author can still remove it. */}
+      <section aria-label="Past check-ins" className="flex flex-col gap-3">
+        <Heading level={2}>Past check-ins</Heading>
+
+        {pastAlerts.length === 0 ? (
+          <p className="text-ink-muted">
+            Check-ins you were part of will appear here once they're closed.
+          </p>
+        ) : (
+          <ul id="past-check-ins" className="flex flex-col gap-4">
+            {(showAllPast ? pastAlerts : pastAlerts.slice(0, PAST_PREVIEW)).map((alert) => (
+              <li key={alert.id}>
+                <Card>
+                  <article className="flex flex-col gap-2">
+                    <h3 className="text-lg font-semibold text-ink">
+                      {alert.sender.id === user?.id
+                        ? "You"
+                        : alert.sender.displayName}
+                      : {labelFor(alert.alertType)}
+                    </h3>
+                    {alert.closedAt && (
+                      <p className="text-sm text-ink-muted">
+                        Closed {formatWhen(alert.closedAt)}
+                      </p>
+                    )}
+                    {alert.note && (
+                      <p className="wrap-break-word text-ink">{alert.note}</p>
+                    )}
+
+                    <div className="mt-2">
+                      {/* "Read", not "Open" — the wording says up front that
+                          nothing can be added to this one. */}
+                      <Link
+                        to={`/alerts/${alert.id}`}
+                        className="font-medium text-brand-600 underline"
+                      >
+                        Read conversation →
+                      </Link>
+                    </div>
+                  </article>
+                </Card>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {pastAlerts.length > PAST_PREVIEW && (
+          <div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => setShowAllPast((open) => !open)}
+              aria-expanded={showAllPast}
+              aria-controls="past-check-ins"
+            >
+              {showAllPast
+                ? "Show fewer"
+                : `Show ${pastAlerts.length - PAST_PREVIEW} more`}
+            </Button>
+          </div>
         )}
       </section>
     </main>

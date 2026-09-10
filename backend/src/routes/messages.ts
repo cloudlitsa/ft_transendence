@@ -200,9 +200,21 @@ export async function messagesRoutes(fastify: FastifyInstance) {
     //    this conversation should not get to stream 5MB at us, and should
     //    never have a file written to disk on their behalf. Refusing here
     //    costs one indexed query.
-    const senderId = await canAccessAlert(id, me);
-    if (senderId === null) {
+    const access = await canAccessAlert(id, me);
+    if (access === null) {
         return reply.code(404).send({ error: "Alert not found" });
+    }
+    const senderId = access.senderId;
+
+    // 2b. A closed check-in takes no new messages: closing withdraws the
+    //     permission to talk that sending it granted. The thread stays
+    //     readable, it just stops growing.
+    //
+    //     409, not the usual 404 — the caller can already see status "closed"
+    //     from GET /api/alerts/:id, so a 404 would hide nothing. Before the body is read,
+    //     for the same reason the access check above is.
+    if (access.status === "closed") {
+        return reply.code(409).send({ error: "This check-in is closed" });
     }
 
     // 3. Branch on the body shape. Both paths end with the same two values,
@@ -335,8 +347,8 @@ export async function messagesRoutes(fastify: FastifyInstance) {
     const { id } = parsedParams.data;
     const me = authedUserId(request);
 
-    const senderId = await canAccessAlert(id, me);
-    if (senderId === null) {
+    // Visibility only — a closed conversation is still readable.
+    if ((await canAccessAlert(id, me)) === null) {
         return reply.code(404).send({ error: "Alert not found" });
     }
 

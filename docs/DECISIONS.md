@@ -99,8 +99,18 @@ upload and management* section records that in full.
 
 ## Who can see what
 
-> **Status.** These decisions are implemented end to end: the schema, the
-> backend routes, and the chat UI that renders them.
+### The export shows original names, not stored ones
+
+`GET /export` omits `filename` — the internal `<uuid>.<ext>` on disk — and
+keeps `originalName`, which is what the user uploaded and would recognise.
+
+`filename` is an implementation detail, and it's the exact value the
+access-control test uses to prove that a direct request to
+`/api/account/export` returns 404. Handing it out in a file the user keeps
+is pointless at best.
+
+It's `.map` rather than `select` so a column added later doesn't silently drop
+out of everyone's export.
 
 ### Chat is a group conversation, not per-friend threads
 
@@ -123,15 +133,51 @@ state of mind. Anyone wanting a private word uses another channel. For a closed
 circle of people who all chose each other that's a reasonable default — but it
 is a choice, not an accident of the schema.
 
-### Closing an alert stops acknowledgements, not chat
+### Deleting an account takes the thread with it
 
-Once an alert is closed nobody else can acknowledge it, but the conversation
-stays open and messages can still be posted.
+Two cascade paths reach `messages`: `sender_id → users`, and
+`alert_id → alerts → users`. Both are `onDelete: Cascade`. So deleting an
+account removes your messages wherever you wrote them, *and* every message in
+an alert you sent, whoever wrote it.
 
-Status describes the *alert*; the conversation belongs to the *people in it*,
-and the useful part often starts after someone says they're alright. There's
-nothing extra to build for this — chat access derives from the alert's
-audience, not from its status.
+Both directions surprise people. A friend who replied to your check-in loses
+their reply. And you leaving puts gaps in conversations you were only a guest
+in.
+
+The alternative is what most chat apps do — keep other people's messages, and
+keep yours in their threads, on the grounds that a reply is its author's own
+expression. We don't, for two reasons. A check-in thread is a conversation
+about one person's distress, so leaving it readable after they've gone means
+their crisis stays on other people's screens. And erasure is the right we're
+claiming, so an ambiguous case should resolve toward removing more rather than
+less.
+
+The cost is real and falls on someone who didn't delete anything. That's why
+it's stated in the Privacy Policy rather than left to be discovered.
+
+### Closing an alert ends its conversation
+
+A closed check-in accepts no new messages (`409`), but stays readable and is
+listed under *Past check-ins* on the alerts page.
+
+The alert is what grants permission to talk, so withdrawing it withdraws the
+permission. Leaving the chat open would be one-sided in practice: closing
+removes the sender's link to the thread, so a friend with the tab still open
+could keep posting into a conversation the sender can no longer reach.
+
+The status check lives in `POST /messages` alone, not in `canAccessAlert` —
+that helper is shared with the message GET and both attachment routes, so
+history, images and an author's own attachment delete all keep working.
+
+`409` rather than the usual `404`: the caller can already see `status: "closed"`
+from `GET /api/alerts/:id`, so a 404 would hide nothing.
+
+### Past check-ins show only the ones you took part in
+
+`pastAlerts` lists closed alerts you sent, acknowledged or posted in — not every
+closed alert you could once see. The live list shows every friend's active
+check-in because that is a "someone needs you now" signal; a browsable record of
+every friend's past bad days is a different thing.
 
 ### Chat access doesn't require acknowledging first
 
@@ -240,6 +286,29 @@ exists (see "Attachments are deletable by their sender").
 `deleted_at` first, then unlinks — here the surviving row is what the UI needs,
 and a leftover file is unreachable once the row says deleted. One rule in both
 directions: put the failure where nobody can see it.
+
+### Account deletion collects filenames before it deletes
+
+`ON DELETE CASCADE` is a Postgres feature. It removes rows and knows nothing
+about the filesystem — so deleting a user wiped the attachment and avatar rows
+and left the files sitting on the volumes.
+
+The rows were the only record of which file belonged to whom. Filenames are
+UUIDs; once the rows are gone there is nothing left to identify the orphans by.
+So `routes/gdpr.ts` collects every live attachment filename and the avatar URL
+**before** `prisma.user.delete`, then unlinks after it commits.
+
+Order matters in both directions. Collect before, or there is nothing left to
+collect. Unlink after, or a delete that fails partway has already destroyed
+files for an account that still exists.
+
+Unlink failures are logged, never thrown — the same rule as the confirmation
+emails. A file that won't unlink must not stop someone deleting their account;
+that would be a worse problem than the one this fixes.
+
+The query filters on `deletedAt: null`, because a soft-deleted attachment had
+its file removed at the time — see "A write spanning disk and database goes to
+disk first".
 
 ### Attachment uploads extend the message endpoint, they don't get their own
 
@@ -471,6 +540,33 @@ Two consequences we accepted:
   the moment the mechanism changes; under-promising there costs nothing,
   while over-promising is the error that actually matters.
 
+### Alpine base images
+
+`node:22-alpine`, `postgres:16-alpine`, `caddy:2-alpine`. The subject doesn't
+ask for this; we chose it.
+
+**Size.** `node:22-alpine` is around 130 MB against roughly 1.1 GB for the full
+image. That's faster builds and faster pulls, and it matters directly at
+evaluation — a fresh clone has to download all of it before the app starts.
+
+**Attack surface.** Fewer installed packages means fewer things carrying CVEs.
+Alpine ships busybox and musl rather than a full GNU userland. Same reasoning
+as running as `node` rather than root: ship the minimum.
+
+**The trade-off** is musl libc instead of glibc. Packages with native binaries
+sometimes have no prebuilt musl build and either compile from source at install
+time or don't work at all.
+
+We don't hit it, and not by luck — see *bcryptjs over bcrypt*. That choice was
+made to avoid native compilation, which is exactly the class of problem Alpine
+makes worse. The two decisions hold each other up.
+
+**Mailhog is the exception, and it's fine.** It publishes an amd64 image only,
+so on Apple Silicon it runs under emulation and Docker warns about the platform
+mismatch on every `up`. It's a dev-only mail catcher that never ships, and it
+works. Pinning `platform: linux/amd64` would silence the warning on one
+machine and risk breaking it on another architecture, so we leave it.
+
 ### Non-root containers
 
 Both Dockerfiles run as `node` rather than `root`, so a compromised process
@@ -521,6 +617,29 @@ surprise. Postgres because the data is relational — users, friendships,
 alerts, acknowledgements, messages are all joins. Prisma because the ORM
 module requires an ORM that's genuinely used, and Prisma makes that visible.
 
+### Workbox logs in the dev service worker
+
+The console shows Workbox precache misses for `/api/*` routes. They are
+`console.debug` from the service worker. The messages are correct
+behaviour: API responses are not precached, so the request falls through
+to the network.
+
+The eval sheet allows minor third-party warnings if explained; this is
+the explanation.
+
+### `startTime` TypeError from DevTools live metrics
+
+An `Uncaught TypeError: Cannot read properties of undefined (reading
+'startTime')` appears on idle while DevTools is open. It comes from a
+script DevTools injects into the inspected page to measure INP and CLS
+(the source references `reportSoftNavs: window.devTools`). It reads
+`entries[0].startTime` on an empty array after a client-side route
+change.
+
+It is not in our dependency tree — `npm ls web-vitals` returns nothing —
+and it does not reproduce on a static page with no soft navigations.
+It only exists while DevTools is open.
+
 ---
 
 ## Accepted risks
@@ -552,6 +671,7 @@ Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
 
+<<<<<<< HEAD
 ### OAuth account linking is one-directional.
 
 When a user logs in with Google, we link to an existing password account on the same email automatically — 
@@ -566,3 +686,23 @@ Reverse-linking would require a "set password" action on the profile/settings pa
 available only to an already-authenticated user (proving they own the account) — 
 it cannot go through the public signup endpoint without opening an account-takeover hole. 
 If we decide the UX is worth it, it's a separate ticket.
+=======
+### Attachment images load eagerly
+
+Chrome's DevTools flags `loading="lazy"` on an image with no explicit
+dimensions: it reserves a 0×0 box, then shifts the page when the file
+arrives. Every other image in the app carries `width`/`height` and does
+not shift.
+
+Attachments are user uploads, so we don't know their dimensions at
+render time. Options were: store `width`/`height` on the Attachment
+record at upload; reserve a fixed aspect ratio in CSS and crop; or load
+eagerly. We load eagerly.
+
+Storing dimensions is the correct fix and stays on the list — it's a
+schema change, rejected this close to evaluation. Cropping loses part
+of the image in the thumbnail. Eager loading costs a full download of
+every image in a long conversation, which is the trade we accepted: a
+conversation is a bounded list and the images are inside the visible
+scroll region anyway.
+>>>>>>> origin/main

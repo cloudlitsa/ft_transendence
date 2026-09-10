@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Input from "../components/ui/Input";
 import Button, { buttonClasses } from "../components/ui/Button";
+import Heading from "../components/ui/Heading.tsx";
 
 export default function SignupPage() {
   const [email, setEmail] = useState("");
@@ -48,14 +49,14 @@ export default function SignupPage() {
   }
 }
   return (
-    <main className="max-w-sm mx-auto p-4 md:p-8">
-      <h1 className="text-2xl font-bold mb-6">Sign up</h1>
+    <main className="flex flex-col gap-8">
+      <Heading level={1}>Sign up</Heading>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
           label="Display name"
           type="text"
-          autoComplete="nickname"
+          autoComplete="off"
           value={displayName}
           error={fieldErrors.displayName}
           onChange={(e) => setDisplayName(e.target.value)}

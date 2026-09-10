@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Input from "../components/ui/Input";
 import Button, { buttonClasses } from "../components/ui/Button";
+import Heading from "../components/ui/Heading.tsx";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -31,8 +32,8 @@ export default function LoginPage() {
   }
 
   return (
-    <main className="max-w-sm mx-auto p-4 md:p-8">
-      <h1 className="text-2xl font-bold mb-6">Log in</h1>
+    <main className="flex flex-col gap-8">
+      <Heading level={1}>Log in</Heading>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
         <Input
