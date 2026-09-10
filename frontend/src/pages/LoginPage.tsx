@@ -9,14 +9,32 @@ import Heading from "../components/ui/Heading.tsx";
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<{
+    email?: string;
+    password?: string;
+  }>({});
+  const [error, setError] = useState("");   // form-level, from the backend
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const { refresh } = useAuth();
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault(); // stop the browser's default full-page reload
-    setError("");       // clear any error from a previous attempt
+    setError(""); // clear any form-level error from a previous attempt
+    setFieldErrors({}); // clear any field errors from a previous attempt
+
+    const next: typeof fieldErrors = {};
+    if (email.trim().length < 1) next.email = "Email is required";
+    if (password.length < 8) next.password = "Please enter your password - at least 8 characters";
+    // Client-side validation mirrors the backend's Zod rules — UX only, not
+    // security. Errors attach to their field so a screen reader announces the
+    // problem when focus lands on the input, rather than in a separate message
+    // the user has to go and find.
+    if (Object.keys(next).length > 0) {
+      setFieldErrors(next);
+      return;
+    }
+
     setLoading(true);
     try {
       // On success the backend sets the httpOnly auth cookie — user is now
@@ -41,6 +59,7 @@ export default function LoginPage() {
           type="email"
           autoComplete="username"
           value={email}
+          error={fieldErrors.email} // Display field-specific error if available
           onChange={(e) => setEmail(e.target.value)}
         />
         <Input
@@ -48,6 +67,7 @@ export default function LoginPage() {
           type="password"
           autoComplete="current-password"
           value={password}
+          error={fieldErrors.password} // Display field-specific error if available
           onChange={(e) => setPassword(e.target.value)}
         />
         <Button type="submit" loading={loading}>

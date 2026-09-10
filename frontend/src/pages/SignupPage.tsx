@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
     displayName?: string;
+    email?: string;
     password?: string;
   }>({});
   const [error, setError] = useState("");   // form-level, from the backend
@@ -30,6 +31,7 @@ export default function SignupPage() {
   // the user has to go and find.
   const next: typeof fieldErrors = {};
   if (displayName.trim().length < 1) next.displayName = "Display name is required";
+  if (email.trim().length < 1) next.email = "Email is required";
   if (password.length < 8) next.password = "Must be at least 8 characters";
 
   if (Object.keys(next).length > 0) {
@@ -66,6 +68,7 @@ export default function SignupPage() {
           type="email"
           autoComplete="email"
           value={email}
+          error={fieldErrors.email}
           onChange={(e) => setEmail(e.target.value)}
         />
         <Input
