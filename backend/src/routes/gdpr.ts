@@ -47,20 +47,24 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       .send(JSON.stringify(payload, null, 2));
   });
 
+  // const confirmSchema = z.object({
+  //   password: z.string().min(1, "Password is required to confirm deletion"),
+  // });
   const confirmSchema = z.object({
-    password: z.string().min(1, "Password is required to confirm deletion"),
+    password: z.string().min(1).optional(),
+    confirmEmail: z.string().min(1).optional(),
   });
 
   fastify.delete("/", async (request, reply) => {
-    // 1. validate the body — must contain a password
+    // 1. Validate the body shape (specific checks depend on account type, below).
     const parsed = confirmSchema.safeParse(request.body);
     if (!parsed.success) {
-      return reply.code(400).send({ error: "Password required to confirm deletion" });
+      return reply.code(400).send({ error: "Confirmation required to delete account" });
     }
 
     const me = authedUserId(request);
 
-    // 2. fetch the stored hash (the ONE place we read passwordHash)
+    // 2. Fetch what we need to confirm identity and to email afterwards.
     const user = await prisma.user.findUnique({
       where: { id: me },
       select: { passwordHash: true, email: true, displayName: true },
@@ -69,22 +73,38 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: "Account not found" });
     }
 
-    // 3. compare typed password against stored hash — SAME check as login
-    const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
-    if (!passwordOk) {
-      return reply.code(403).send({ error: "Incorrect password" });
+    // 3. Confirm intent — the check depends on how the account authenticates.
+    if (user.passwordHash !== null) {
+      // Password or linked account: re-enter the password (unchanged behaviour).
+      if (!parsed.data.password) {
+        return reply.code(400).send({ error: "Password required to confirm deletion" });
+      }
+      const passwordOk = await bcrypt.compare(parsed.data.password, user.passwordHash);
+      if (!passwordOk) {
+        return reply.code(403).send({ error: "Incorrect password" });
+      }
+    } else {
+      // Google-only account: no password exists, so confirm by typing the
+      // account's own email address — a deliberate, account-specific action.
+      if (!parsed.data.confirmEmail) {
+        return reply.code(400).send({ error: "Email confirmation required to delete account" });
+      }
+      if (parsed.data.confirmEmail !== user.email) {
+        return reply.code(403).send({ error: "Email confirmation does not match" });
+      }
     }
-    // 4. confirmed — delete (cascade wipes everything)
+
+    // 4. Confirmed — delete (cascade wipes everything).
     await prisma.user.delete({ where: { id: me } });
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
-
-    // Confirmation email for the deletion (user captured above, before delete).
+    // Confirmation email (user captured above, before delete).
     sendMail(
       user.email,
       "Your account has been deleted",
       `Hi ${user.displayName},\n\nYour account and all associated data have been permanently deleted.\n\n— Check-in`,
     ).catch((err) => request.log.error({ err }, "deletion email failed"));
+
     return reply.send({ ok: true });
   });
 }
