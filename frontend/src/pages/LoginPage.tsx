@@ -3,7 +3,7 @@ import { api } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../lib/AuthContext.tsx";
 import Input from "../components/ui/Input";
-import Button from "../components/ui/Button";
+import Button, { buttonClasses } from "../components/ui/Button";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -53,6 +53,15 @@ export default function LoginPage() {
           {loading ? "Logging in…" : "Log in"}
         </Button>
       </form>
+
+      <div className="mt-4 flex flex-col gap-2">
+        <div className="text-center text-sm text-gray-500">or</div>
+         <a href="/api/auth/google"
+          className={buttonClasses({ variant: "secondary", className: "w-full" })}
+         >
+          Continue with Google
+        </a>
+      </div>
 
       {error && (
         <p role="alert" className="mt-4 text-sm text-danger-700">
