@@ -121,7 +121,13 @@ export async function authRoutes(fastify: FastifyInstance) {
   fastify.get("/me", { preHandler: requireAuth }, async (request, reply) => {
     const user = await prisma.user.findUnique({
       where: { id: authedUserId(request) },
-      select: { id: true, email: true, displayName: true, avatarUrl: true },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        passwordHash: true, // fetched only to derive hasPassword below — never returned
+      },
     });
 
     // requireAuth already confirmed the user exists, but between that check
@@ -131,6 +137,10 @@ export async function authRoutes(fastify: FastifyInstance) {
       return reply.code(401).send({ error: "Account no longer exists" });
     }
 
-    return reply.send({ user });
+    // Expose whether the account has a password (drives the delete-confirmation
+    // UI: password field vs. type-your-email). Strip the hash itself — only the
+    // derived boolean leaves the backend.
+    const { passwordHash, ...safeUser } = user;
+    return reply.send({ user: { ...safeUser, hasPassword: passwordHash !== null } });
   });
 }
