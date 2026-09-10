@@ -100,14 +100,12 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         return reply.code(403).send({ error: "Email confirmation does not match" });
       }
     }
-<<<<<<< HEAD
 
     // 4. Confirmed — delete (cascade wipes everything).
     await prisma.user.delete({ where: { id: me } });
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
     // Confirmation email (user captured above, before delete).
-=======
     // 4. collect all the attachments that will be deleted (for cleanup after the DB delete)
     const doomed = await prisma.attachment.findMany({
       where: {
@@ -130,7 +128,6 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       ).catch((err) => request.log.error({ err }, "avatar file left behind"));
     }
     // Confirmation email for the deletion (user captured above, before delete).
->>>>>>> origin/main
     sendMail(
       user.email,
       "Your account has been deleted",
