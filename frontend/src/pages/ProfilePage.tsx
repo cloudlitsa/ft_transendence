@@ -28,6 +28,7 @@ export default function ProfilePage() {
   // GDPR delete-account confirmation
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [password, setPassword] = useState("");
+  const [confirmEmail, setConfirmEmail] = useState("");
   const [deleting, setDeleting] = useState(false);
 
 
@@ -109,25 +110,54 @@ export default function ProfilePage() {
     window.location.href = "/api/account/export";
   }
 
-  //  GDPR: permanently delete my account 
+  //  GDPR: permanently delete my account
   async function deleteAccount(e: FormEvent) {
     e.preventDefault();
-    if (!password) {
-      toast.error("Enter your password to confirm");
-      return;
+
+    if (user!.hasPassword) {
+      if (!password) {
+        toast.error("Enter your password to confirm");
+        return;
+      }
+    } else {
+      if (confirmEmail !== user!.email) {
+        toast.error("Type your email address exactly to confirm");
+        return;
+      }
     }
+
     setDeleting(true);
     try {
-      await api.delete("/account", { password });
+      // Send the field that matches the account type.
+      const body = user!.hasPassword ? { password } : { confirmEmail };
+      await api.delete("/account", body);
       toast.success("Account deleted");
-      await refresh();   // /auth/me now 401s → clears the user app-wide
-      navigate("/");     // leave the (now inaccessible) profile page
+      await refresh();
+      navigate("/");
     } catch (err) {
-      toast.error((err as Error).message); // "Incorrect password", etc.
+      toast.error((err as Error).message);
     } finally {
       setDeleting(false);
     }
   }
+  // async function deleteAccount(e: FormEvent) {
+  //   e.preventDefault();
+  //   if (!password) {
+  //     toast.error("Enter your password to confirm");
+  //     return;
+  //   }
+  //   setDeleting(true);
+  //   try {
+  //     await api.delete("/account", { password });
+  //     toast.success("Account deleted");
+  //     await refresh();   // /auth/me now 401s → clears the user app-wide
+  //     navigate("/");     // leave the (now inaccessible) profile page
+  //   } catch (err) {
+  //     toast.error((err as Error).message); // "Incorrect password", etc.
+  //   } finally {
+  //     setDeleting(false);
+  //   }
+  // }
 
   // What to show: the local preview if picking, else the saved avatar, else default.
   const shownAvatar = preview ?? user.avatarUrl ?? DEFAULT_AVATAR;
@@ -229,26 +259,38 @@ export default function ProfilePage() {
         ) : (
           <form onSubmit={deleteAccount} className="flex flex-col gap-3">
             <p className="text-sm text-danger-700">
-              This permanently deletes your account and all your data. Enter
-              your password to confirm.
+              This permanently deletes your account and all your data.
+              {user.hasPassword
+                ? " Enter your password to confirm."
+                : " Type your email address to confirm."}
             </p>
-            <Input
-              label="Confirm your password"
-              type="password"
-              autoComplete="current-password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+
+            {user.hasPassword ? (
+              <Input
+                label="Confirm your password"
+                type="password"
+                autoComplete="current-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+            ) : (
+              <Input
+                label={`Type: "${user.email}" to confirm`}
+                type="email"
+                autoComplete="off"
+                value={confirmEmail}
+                onChange={(e) => setConfirmEmail(e.target.value)}
+              />
+            )}
+
             <div className="flex flex-wrap gap-2">
-              {/* The one genuinely destructive, irreversible action on the page.
-                  This is what the danger token is reserved for. */}
               <Button type="submit" variant="danger" loading={deleting}>
                 Confirm delete
               </Button>
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => { setConfirmingDelete(false); setPassword(""); }}
+                onClick={() => { setConfirmingDelete(false); setPassword(""); setConfirmEmail(""); }}
               >
                 Cancel
               </Button>
