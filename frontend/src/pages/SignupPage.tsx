@@ -83,13 +83,12 @@ export default function SignupPage() {
         <Button type="submit" loading={loading}>
           {loading ? "Creating account…" : "Sign up"}
         </Button>
+        {error && (
+          <p role="alert" className="mt-4 text-sm text-danger-700">
+            {error}
+          </p>
+        )}
       </form>
-
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-danger-700">
-          {error}
-        </p>
-      )}
     </main>
   );
 }
