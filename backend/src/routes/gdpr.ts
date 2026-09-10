@@ -101,12 +101,9 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       }
     }
 
-    // 4. Confirmed — delete (cascade wipes everything).
-    await prisma.user.delete({ where: { id: me } });
-    reply.clearCookie(AUTH_COOKIE, { path: "/" });
-
-    // Confirmation email (user captured above, before delete).
-    // 4. collect all the attachments that will be deleted (for cleanup after the DB delete)
+        // 4. Confirmed. Collect attachment filenames BEFORE deleting — the cascade
+    //    wipes attachment rows, so we'd lose the filenames (and orphan the
+    //    files on disk) if we queried after the delete.
     const doomed = await prisma.attachment.findMany({
       where: {
         deletedAt: null,
@@ -114,10 +111,13 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       },
       select: { filename: true },
     });
-    // 5. confirmed — delete (cascade wipes everything)
+
+    // 5. Delete the user — ONE delete. Cascade wipes friendships, alerts,
+    //    acknowledgements, messages, and attachment rows in one operation.
     await prisma.user.delete({ where: { id: me } });
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
+    // 6. Now remove the physical files, using the filenames captured in step 4.
     for (const { filename } of doomed) {
       await removeFile(ATTACHMENTS_DIR, filename);
     }
@@ -127,7 +127,8 @@ export async function gdprRoutes(fastify: FastifyInstance) {
         user.avatarUrl.slice(AVATAR_URL_PREFIX.length),
       ).catch((err) => request.log.error({ err }, "avatar file left behind"));
     }
-    // Confirmation email for the deletion (user captured above, before delete).
+
+    // 7. Confirmation email (user data captured before the delete).
     sendMail(
       user.email,
       "Your account has been deleted",
