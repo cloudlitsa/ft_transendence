@@ -617,6 +617,29 @@ surprise. Postgres because the data is relational — users, friendships,
 alerts, acknowledgements, messages are all joins. Prisma because the ORM
 module requires an ORM that's genuinely used, and Prisma makes that visible.
 
+### Workbox logs in the dev service worker
+
+The console shows Workbox precache misses for `/api/*` routes. They are
+`console.debug` from the service worker. The messages are correct
+behaviour: API responses are not precached, so the request falls through
+to the network.
+
+The eval sheet allows minor third-party warnings if explained; this is
+the explanation.
+
+### `startTime` TypeError from DevTools live metrics
+
+An `Uncaught TypeError: Cannot read properties of undefined (reading
+'startTime')` appears on idle while DevTools is open. It comes from a
+script DevTools injects into the inspected page to measure INP and CLS
+(the source references `reportSoftNavs: window.devTools`). It reads
+`entries[0].startTime` on an empty array after a client-side route
+change.
+
+It is not in our dependency tree — `npm ls web-vitals` returns nothing —
+and it does not reproduce on a static page with no soft navigations.
+It only exists while DevTools is open.
+
 ---
 
 ## Accepted risks
@@ -647,3 +670,22 @@ tree into the project and reports more findings than it fixes.
 Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
+
+### Attachment images load eagerly
+
+Chrome's DevTools flags `loading="lazy"` on an image with no explicit
+dimensions: it reserves a 0×0 box, then shifts the page when the file
+arrives. Every other image in the app carries `width`/`height` and does
+not shift.
+
+Attachments are user uploads, so we don't know their dimensions at
+render time. Options were: store `width`/`height` on the Attachment
+record at upload; reserve a fixed aspect ratio in CSS and crop; or load
+eagerly. We load eagerly.
+
+Storing dimensions is the correct fix and stays on the list — it's a
+schema change, rejected this close to evaluation. Cropping loses part
+of the image in the thumbnail. Eager loading costs a full download of
+every image in a long conversation, which is the trade we accepted: a
+conversation is a bounded list and the images are inside the visible
+scroll region anyway.
