@@ -671,7 +671,6 @@ Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
 
-<<<<<<< HEAD
 ### OAuth account linking is one-directional.
 
 When a user logs in with Google, we link to an existing password account on the same email automatically — 
@@ -685,8 +684,6 @@ so a Google-only user cannot currently set a password. This is a deliberate MVP 
 Reverse-linking would require a "set password" action on the profile/settings page, 
 available only to an already-authenticated user (proving they own the account) — 
 it cannot go through the public signup endpoint without opening an account-takeover hole. 
-If we decide the UX is worth it, it's a separate ticket.
-=======
 ### Attachment images load eagerly
 
 Chrome's DevTools flags `loading="lazy"` on an image with no explicit
@@ -705,4 +702,3 @@ of the image in the thumbnail. Eager loading costs a full download of
 every image in a long conversation, which is the trade we accepted: a
 conversation is a bounded list and the images are inside the visible
 scroll region anyway.
->>>>>>> origin/main

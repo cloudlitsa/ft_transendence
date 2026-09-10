@@ -140,25 +140,7 @@ export default function ProfilePage() {
       setDeleting(false);
     }
   }
-  // async function deleteAccount(e: FormEvent) {
-  //   e.preventDefault();
-  //   if (!password) {
-  //     toast.error("Enter your password to confirm");
-  //     return;
-  //   }
-  //   setDeleting(true);
-  //   try {
-  //     await api.delete("/account", { password });
-  //     toast.success("Account deleted");
-  //     await refresh();   // /auth/me now 401s → clears the user app-wide
-  //     navigate("/");     // leave the (now inaccessible) profile page
-  //   } catch (err) {
-  //     toast.error((err as Error).message); // "Incorrect password", etc.
-  //   } finally {
-  //     setDeleting(false);
-  //   }
-  // }
-
+ 
   // What to show: the local preview if picking, else the saved avatar, else default.
   const shownAvatar = preview ?? user.avatarUrl ?? DEFAULT_AVATAR;
 
@@ -285,6 +267,8 @@ export default function ProfilePage() {
             )}
 
             <div className="flex flex-wrap gap-2">
+              {/* The one genuinely destructive, irreversible action on the page.  
+                  This is what the danger token is reserved for. */}
               <Button type="submit" variant="danger" loading={deleting}>
                 Confirm delete
               </Button>

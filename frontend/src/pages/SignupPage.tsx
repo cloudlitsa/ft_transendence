@@ -83,7 +83,7 @@ export default function SignupPage() {
       </form>
 
       <div className="mt-4 flex flex-col gap-2">
-        <div className="text-center text-sm text-gray-500">or</div>
+        <div className={buttonClasses({ variant: "secondary", className: "w-full" })}>or</div>
          <a href="/api/auth/google"
           className={buttonClasses({ variant: "secondary", className: "w-full" })}
          >

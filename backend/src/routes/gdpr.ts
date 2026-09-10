@@ -54,9 +54,6 @@ export async function gdprRoutes(fastify: FastifyInstance) {
       .send(JSON.stringify(payload, null, 2));
   });
 
-  // const confirmSchema = z.object({
-  //   password: z.string().min(1, "Password is required to confirm deletion"),
-  // });
   const confirmSchema = z.object({
     password: z.string().min(1).optional(),
     confirmEmail: z.string().min(1).optional(),
