@@ -115,8 +115,13 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     reply.clearCookie(AUTH_COOKIE, { path: "/" });
 
     // 6. Now remove the physical files, using the filenames captured in step 4.
+    //    A file that won't delete must not fail the request: the account is
+    //    already gone from the database, so reporting failure would be wrong
+    //    and would stop the remaining files being cleaned up. Log and continue.
     for (const { filename } of doomed) {
-      await removeFile(ATTACHMENTS_DIR, filename);
+      await removeFile(ATTACHMENTS_DIR, filename).catch((err) =>
+        request.log.error({ err, filename }, "attachment file left behind"),
+      );
     }
     if (user.avatarUrl?.startsWith(AVATAR_URL_PREFIX)) {
       await removeFile(
