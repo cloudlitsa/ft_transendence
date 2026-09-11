@@ -25,7 +25,7 @@ export default function LoginPage() {
 
     const next: typeof fieldErrors = {};
     if (email.trim().length < 1) next.email = "Email is required";
-    if (password.length < 8) next.password = "Please enter your password";
+    if (password.length < 1) next.password = "Please enter your password";
     // Client-side validation mirrors the backend's Zod rules — UX only, not
     // security. Errors attach to their field so a screen reader announces the
     // problem when focus lands on the input, rather than in a separate message
@@ -87,12 +87,6 @@ export default function LoginPage() {
           Continue with Google
         </a>
       </div>
-
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-danger-700">
-          {error}
-        </p>
-      )}
     </main>
   );
 }
