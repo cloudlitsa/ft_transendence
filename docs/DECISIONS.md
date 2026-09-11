@@ -683,7 +683,8 @@ Signup returns 409 for any existing email regardless of how that account authent
 so a Google-only user cannot currently set a password. This is a deliberate MVP scope decision, not an oversight. 
 Reverse-linking would require a "set password" action on the profile/settings page, 
 available only to an already-authenticated user (proving they own the account) — 
-it cannot go through the public signup endpoint without opening an account-takeover hole. 
+it cannot go through the public signup endpoint without opening an account-takeover hole.
+
 ### Attachment images load eagerly
 
 Chrome's DevTools flags `loading="lazy"` on an image with no explicit
@@ -702,3 +703,13 @@ of the image in the thumbnail. Eager loading costs a full download of
 every image in a long conversation, which is the trade we accepted: a
 conversation is a bounded list and the images are inside the visible
 scroll region anyway.
+
+### /auth/me now answers 200 when logged out.
+
+"Is anyone logged in?" has a valid negative answer, so no session 
+returns { user: null } instead of a 401. The frontend can't check 
+for itself because the cookie is HttpOnly, so it asks on every load, 
+and a 401 put two red errors in the console before a visitor had done 
+anything. Every other protected route still returns 401 through 
+requireAuth. /me repeats the same three checks and clears a bad 
+cookie the same way.

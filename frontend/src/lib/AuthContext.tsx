@@ -24,7 +24,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const refresh = useCallback(async () => {
     try {
-      const res = await api.get<{ user: User }>("/auth/me");
+      // Logged out comes back as 200 { user: null }, so the catch
+      // now only handles network and server errors.
+      const res = await api.get<{ user: User | null }>("/auth/me");
       setUser(res.user);
     } catch {
       setUser(null);
