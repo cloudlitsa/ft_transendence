@@ -940,21 +940,38 @@ demand — the two core GDPR rights of access and erasure.
   `/api/account` and protected by the shared `requireAuth` hook (same pattern
   as `friends.ts`).
 - **Export** — `GET /api/account/export` gathers the user's own rows from all
-  five tables (user, friendships, alerts, acknowledgements, messages) via
-  scoped Prisma queries, and returns them as a downloadable JSON file
-  (`Content-Disposition` header). The user `select` **omits `passwordHash`**, so
-  the hash can never leak into an export.
-- **Delete with confirmation** — `DELETE /api/account` requires the user to
-  re-enter their password (validated with Zod, checked with the same
-  `bcrypt.compare` login uses). Only on a match does it run
-  `prisma.user.delete`, whose `onDelete: Cascade` foreign keys wipe the user's
-  friendships, alerts, acknowledgements and messages in one operation.
+  six tables (user, friendships, alerts, acknowledgements, messages,
+  attachments) via scoped Prisma queries, and returns them as a downloadable
+  JSON file (`Content-Disposition` header). The user `select` **omits
+  `passwordHash`**, so the hash can never leak into an export. Attachments are
+  the ones on the user's own messages, with the internal `filename` (the stored
+  `<uuid>.<ext>`) stripped from each row.
+- **Delete with confirmation** — `DELETE /api/account` confirms intent in one
+  of two ways, depending on the account type:
+  - **Password or linked account** — re-enter the password (validated with
+    Zod, checked with the same `bcrypt.compare` login uses).
+  - **Google-only account** — no password exists, so the user types their own
+    email address instead.
+
+  Both paths return `400` if the confirmation is missing and `403` if it is
+  wrong. Only on a match does it run `prisma.user.delete`, whose
+  `onDelete: Cascade` foreign keys wipe the user's friendships, alerts,
+  acknowledgements, messages and attachment rows in one operation.
+- **Files on disk** — the cascade removes rows, not files. So the route
+  collects the attachment filenames *before* the delete — from messages the
+  user sent and from every message in their own check-ins — and unlinks them
+  from `/app/private` afterwards. An uploaded avatar is removed from
+  `/app/uploads` too.
 - **Confirmation emails** — both operations send a notification via a reusable
   helper (`backend/src/lib/mail.ts`, `sendMail(to, subject, body)` over SMTP,
   configured from env vars). Sends are fire-and-forget: a mail failure is logged
   and never blocks the export or delete. In dev, mail is caught by a **Mailhog**
   container (`docker-compose.yml`, web UI at `localhost:8025`); going live is an
   env-var change, no code change.
+- **Frontend** — the *Profile* page has a **Download my data** button, which
+  downloads `my-data.json`, and a **Delete account** button that opens a
+  confirmation form. The form shows a password field or an email field, based
+  on `hasPassword` from `/api/auth/me`.
 
 **How to verify.**
 1. `docker compose up --build`, then sign up via curl to get a session cookie
@@ -963,19 +980,25 @@ demand — the two core GDPR rights of access and erasure.
    The mkcert CA is in the system trust store, so curl accepts the certificate
    without `-k`.
 2. **Export** — `curl -b cookies.txt https://localhost/api/account/export` returns
-   all five sections as JSON, with **no `passwordHash`** field.
-3. **Delete** — no password → `400`; wrong password → `403`; correct password →
-   `{"ok":true}`. Afterwards any guarded route returns `401` "Account no longer
-   exists".
-4. **Cascade** — in psql, confirm no rows remain for the deleted user and that
+   all six sections as JSON, with **no `passwordHash`** field and no `filename`
+   in `attachments`.
+3. **Delete, password account** — no password → `400`; wrong password → `403`;
+   correct password → `{"ok":true}`. Afterwards any guarded route returns `401`
+   "Account no longer exists".
+4. **Delete, Google-only account** — sign in with Google, open *Profile* →
+   *Delete account* → the form asks for your email, not a password. Wrong
+   email → `403`; correct email → the account is deleted.
+5. **Files** — upload an avatar and send an image in a chat, then run
+   `docker compose exec backend ls /app/private /app/uploads` before and after
+   deleting the account → both files are gone.
+6. **Cascade** — in psql, confirm no rows remain for the deleted user and that
    the foreign keys carry `ON DELETE CASCADE`.
-5. **Emails** — open `localhost:8025`; export and delete each produce a
+7. **Emails** — open `localhost:8025`; export and delete each produce a
    confirmation email.
 
 **Scope note.** The confirmation emails send in dev via Mailhog; delivering to
 real inboxes in production is an env-var swap. The `sendMail` helper is generic
-(no GDPR-specific logic), so other modules can reuse it. The frontend
-"Download my data" button and "Delete account" dialog are a follow-up.
+(no GDPR-specific logic), so other modules can reuse it.
 
 **Contributor.** mosokina
 
