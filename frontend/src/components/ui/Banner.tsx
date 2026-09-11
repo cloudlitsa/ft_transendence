@@ -12,6 +12,9 @@ const tones: Record<Tone, { box: string; icon: IconName }> = {
 
 interface BannerProps {
   tone?: Tone;
+  /** Announce when it appears. Set false for static page content. */
+  live?: boolean;
+  /** The content of the banner. */
   children: ReactNode;
   /** Renders a dismiss button when provided. */
   onDismiss?: () => void;
@@ -20,18 +23,19 @@ interface BannerProps {
 
 export default function Banner({
   tone = "info",
+  live = true,
   children,
   onDismiss,
   className = "",
 }: BannerProps) {
   const { box, icon } = tones[tone];
-
-  // Problems interrupt; confirmations don't. Same rule as form errors, one scope up.
-  const role = tone === "danger" || tone === "warning" ? "alert" : "status";
+   // Problems interrupt (alert); confirmations wait their turn (status).
+   // Static content (live={false}) isn't announced at all.
+  const liveRole = tone === "danger" || tone === "warning" ? "alert" : "status";
 
   return (
     <div
-      role={role}
+      role={live ? liveRole : undefined}
       className={`flex items-start gap-3 rounded-md border-l-4 p-3 text-sm ${box} ${className}`}
     >
       <Icon name={icon} className="size-5 shrink-0" />
