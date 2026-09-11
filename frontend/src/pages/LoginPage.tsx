@@ -74,7 +74,7 @@ export default function LoginPage() {
           {loading ? "Logging in…" : "Log in"}
         </Button>
         {error && (
-          <p role="alert" className="mt-4 text-sm text-danger-700">
+          <p role="alert" className="text-sm text-danger-700">
             {error}
           </p>
         )}

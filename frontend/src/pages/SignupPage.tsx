@@ -60,6 +60,7 @@ export default function SignupPage() {
           type="text"
           autoComplete="off"
           value={displayName}
+          maxLength={50}
           error={fieldErrors.displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
@@ -84,7 +85,7 @@ export default function SignupPage() {
           {loading ? "Creating account…" : "Sign up"}
         </Button>
         {error && (
-          <p role="alert" className="mt-4 text-sm text-danger-700">
+          <p role="alert" className="text-sm text-danger-700">
             {error}
           </p>
         )}
