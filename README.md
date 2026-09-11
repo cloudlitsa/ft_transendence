@@ -16,7 +16,7 @@ A web app for sending check-in alerts to a small circle of trusted friends.
 6. [Instructions](#6-instructions)
 7. [Features List](#7-features-list)
 8. [Modules](#8-modules)
-   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--user-management--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt)
+   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--web--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt)
 9. [Individual Contributions](#9-individual-contributions)
 10. [Project Structure](#10-project-structure)
 11. [Legal Pages](#11-legal-pages)
@@ -411,7 +411,7 @@ a smaller set that all work beats a larger set with a weak link.
 | 1 | Frameworks for frontend and backend | Web | Major | 2 | Complete |
 | 2 | Real-time features with WebSockets | Web | Major | 2 | Complete |
 | 3 | Standard user management | User Management | Major | 2 | Complete |
-| 4 | User interaction | User Management | Major | 2 | Complete |
+| 4 | User interaction | Web | Major | 2 | Complete |
 | 5 | ORM | Web | Minor | 1 | Complete |
 | 6 | Notification system | Web | Minor | 1 | Complete |
 | 7 | Progressive Web App | Web | Minor | 1 | Complete |
@@ -419,18 +419,11 @@ a smaller set that all work beats a larger set with a weak link.
 | 9 | File upload and management | Web | Minor | 1 | Complete |
 | 10 | GDPR compliance | Data and Analytics | Minor | 1 | Complete |
 | | **Required total** | | | **14** | |
-| 11 | OAuth | User Management | Minor | 1 | In review |
+| 11 | OAuth | User Management | Minor | 1 | Complete |
 | | **With OAuth** | | | **15** | |
 
 **Point calculation.** 4 Major x 2 = 8, plus 6 Minor x 1 = 6. **14 points.**
 With OAuth, 7 Minor x 1 = 7, so **15**.
-
-**On OAuth.** It is the fifteenth point, not one of the fourteen, and the
-project does not depend on it. It counts only once merged, verified end to end,
-and documented in its section below — and it ships together with a second
-confirmation route for account deletion, because an account created through
-Google has no password to confirm with. Merging it without that would gain a
-spare point and put a required one at risk. Reasoning in `docs/PROJECT.md`.
 
 ### Why these modules
 
@@ -564,14 +557,66 @@ purpose, and the sender needs to see that someone has picked it up.
 
 **Contributor.** mosokina, evmouka, mtocu
 
-### User Interaction — User Management · Major · 2 pts
+### User Interaction — Web · Major · 2 pts
 
-> **Maria to write.** 
+**What it is.** The subject asks for three things: a basic chat system, a
+profile system for viewing user information, and a friends system with
+add/remove and a friends list. In this app they are one flow — you add a
+friend, you see who they are, and you talk to them in the conversation attached
+to a check-in.
 
+The friends system and the profile are required by *Standard User Management*
+too. That overlap is the subject's, and we confirmed with staff that both
+modules may be claimed.
 
+**How it's implemented.**
 
+**1. Friends system.** `backend/src/routes/friends.ts` + `FriendsPage.tsx` —
+request by email, accept, decline, cancel, unfriend, and the list. One row per
+pair, with the ids sorted so the smaller UUID is always `user_id_a`;
+`requested_by` tells the two sides apart. Every request gets the same neutral
+reply, so the form cannot be used to discover which emails have accounts — the
+rule the login form follows. Declining deletes the row, so there is no
+"declined" state and the sender can ask again. Until both sides accept, nothing
+is shared.
 
+**2. Profile system.** `GET /api/profile/:id` + `UserProfilePage.tsx` at
+`/profile/:id`, reached by clicking a friend's name. It shows display name,
+avatar and a live online badge, and returns no email and no password hash —
+only what other people may see. Presence is described under *Standard User
+Management*.
 
+**3. Basic chat.** `POST` and `GET /api/alerts/:id/messages`
+(`backend/src/routes/messages.ts`) + `ConversationPage.tsx`. A message has no
+recipient field: its audience is whoever can see the check-in — the sender plus
+the sender's accepted friends — so it is one group thread, not a set of
+one-to-one threads. `canAccessAlert` (`backend/src/lib/alertAccess.ts`) is the
+single access rule, shared with the attachment routes so text and images cannot
+disagree about who may read them; only `accepted` grants access. Live messages
+arrive on the same socket through `MessagesContext` and are added by id only if
+not already present, so nothing appears twice. Message text cannot be edited or
+deleted; an attachment can be removed by its sender. Closing a check-in refuses
+new messages with a `409` and leaves the history readable.
+
+**How to verify.**
+1. Two browsers (separate cookie jars). A sends a friend request to B's email;
+   a request to an address with no account returns the same message.
+2. B declines → gone for both; ask again → it works, because declining left
+   nothing behind. Accept the second time.
+3. Click the friend's name → their read-only profile with an online badge.
+   `curl` the same endpoint → no email, no password hash.
+4. A sends a check-in, B acknowledges it. Type on both sides → messages appear
+   without a refresh, once each.
+5. Close the check-in → the composer is replaced by a note, the history stays,
+   and `POST /api/alerts/<id>/messages` returns `409`.
+6. As C, a friend of nobody → `GET /api/alerts/<id>/messages` returns `404`. A
+   pending request returns `404` too: pending is not access.
+
+**Scope note.** Chat is attached to a check-in; there is no one-to-one
+messaging outside one.
+
+**Contributor.** aaladeok (chat backend), mosokina (chat frontend, public
+profile, online status), evmouka (check-in and acknowledgement)
 
 ### ORM — Web · Minor · 1 pt
 
@@ -936,9 +981,86 @@ real inboxes in production is an env-var swap. The `sendMail` helper is generic
 
 ### OAuth — User Management · Minor · 1 pt
 
-> **Ade to write, once it merges.** Same shape as the sections around it.
+**What it is.** Remote authentication with Google, as an alternative to email
+and password. A user can sign in with their Google account; the app creates or
+finds their account and issues the same session as a password login. It ships
+together with a second confirmation path for account deletion, because an
+account created through Google has no password to confirm with — merging the
+login without that would leave a class of users unable to exercise GDPR
+erasure.
 
+**How it's implemented.**
 
+- **The flow.** `@fastify/oauth2` (registered in `server.ts` with OIDC
+  discovery against `https://accounts.google.com`) creates the
+  `/api/auth/google` redirect and handles the authorization-code exchange. The
+  callback (`backend/src/routes/oauth.ts`) fetches the Google profile via the
+  plugin's `userinfo` and then does the account resolution itself. Discovery is
+  used rather than the static `GOOGLE_CONFIGURATION` preset specifically
+  because `userinfo` needs the endpoint list that discovery provides.
+
+- **Find-or-create, keyed on Google's `sub`.** Google's stable subject id is
+  stored as a unique `google_id` column. The handler resolves an account in
+  three branches: an existing `google_id` is a returning user; no `google_id`
+  but a matching email links Google to that existing account; neither is a new
+  Google-only account (`passwordHash` null).
+
+- **Linking is guarded by `email_verified`.** An existing password account is
+  only linked to Google when Google reports the email as verified. We trust
+  Google's proof of ownership, not the user's claim — otherwise someone could
+  pre-register a password account on an email they do not own and have it
+  taken over on the real owner's first Google sign-in. The reasoning and the
+  rejected alternatives are in `docs/DECISIONS.md`.
+
+- **The schema change and its knock-on effects.** `passwordHash` became
+  nullable and a unique `google_id` was added, so an account can be
+  password-only, Google-only, or linked. That one change rippled into two
+  existing paths: password login now guards against a null hash (a Google-only
+  account attempting a password login gets a clean `401`, not a `500`), and
+  account deletion had to grow a second confirmation path — a Google-only user
+  confirms erasure by typing their email rather than a password, since they
+  have none.
+
+- **Session reuse.** All three branches end by issuing the same JWT cookie as
+  password login (`signToken` + the shared `cookieOptions`), so an OAuth
+  session is indistinguishable from a password one downstream. The token
+  carries only `userId`; how the user authenticated leaves no trace in the
+  session.
+
+- **`hasPassword` on `/api/auth/me`.** A derived boolean (the hash itself is
+  never exposed — it is selected only to compute the flag, then stripped) tells
+  the frontend which delete confirmation to show. The credentials live in
+  `.env` and are documented in `.env.example`; a startup guard fails loudly if
+  they are missing, matching the `JWT_SECRET` pattern.
+
+**How to verify.**
+1. **New Google user** — sign in with Google on an account the app has not
+   seen → a `users` row is created with `google_id` set and `password_hash`
+   null.
+2. **Returning Google user** — sign in again → logged in, no duplicate row
+   (found by `google_id`).
+3. **Linking** — sign up a password account, then sign in with Google using the
+   same email → the existing row gains a `google_id` (both columns now set), no
+   duplicate; the link happens only because Google reports the email verified.
+4. **Password login to a Google-only account** → `401`, not `500`.
+5. **Delete, password account** → password field; wrong password `403`,
+   correct `200`, account and cascade wiped.
+6. **Delete, Google-only account** → type-your-email field; wrong email `403`,
+   correct `200`, account wiped.
+7. **The UI** — "Continue with Google" on both the login and signup pages
+   starts the flow.
+
+**Scope note.** Linking is one-directional: Google-onto-an-existing-password-
+account is automatic; the reverse — a Google-only user adding a password — is
+not supported, since signup returns `409` for an existing email. Reverse
+linking would need an authenticated "set password" flow on the profile page
+rather than a change to public signup (relaxing the signup duplicate-check
+would open account takeover). Documented in `docs/DECISIONS.md` as a deliberate
+decision, not an omission. OAuth is the fifteenth point, not one of the
+required fourteen. It is merged, verified end to end, and shipped with the
+Google-user deletion path.
+
+**Contributor.** aaladeok
 
 
 ---
@@ -1014,25 +1136,47 @@ no caller on that branch, so TypeScript had not flagged it.
 ### `aaladeok` — Ade (Project Manager + Developer)
 
 **Contributed.** Delivery tracking and the Jira board. The chat backend —
-message creation and retrieval on an alert, with the access check shared with
-the attachment routes. OAuth (in progress).
+message creation and retrieval on an alert, with a `canAccessAlert` check
+(sender-or-accepted-friend) shared with the attachment routes, and the live
+delivery of new messages over the WebSocket. OAuth end to end — the Google
+sign-in flow, the three-branch account model, the schema change and its
+knock-on fixes to password login and account deletion, and the frontend (the
+"Continue with Google" buttons and the account-type-aware delete dialog).
 
 **Challenges.**
 
 - **A scope decision taken deliberately rather than by drift.** Whether to
   build pagination into the chat backend. The answer was no — the subject does
   not require it and the chat frontend was the larger risk — but the response
-  accepts optional `limit` and `before` query parameters, so the shape stays
-  stable if it is ever added.
+  shape was kept extensible so it could be added later without a breaking
+  change. The decision was raised with the tech lead rather than made
+  unilaterally, and recorded so it could be defended at evaluation.
+- **An access rule that reads almost like its neighbour but is the opposite of
+  it.** The chat access check is close enough to the alert acknowledge handler
+  to invite copying it — but a sender cannot acknowledge their own alert, while
+  they obviously can message on it. Copying the acknowledge guard wholesale
+  would have locked senders out of their own conversation. The check was
+  written from the rule up rather than by adapting the nearest code.
+- **One schema change with three consequences.** Making `passwordHash` nullable
+  for OAuth was the small part; the work was the ripple. Password login had to
+  guard against comparing against a null hash, and the GDPR deletion path —
+  which required a password to confirm — had to grow an email-confirmation
+  branch, or Google-only users could never delete their accounts. The
+  account-linking security rule (link only on Google's `email_verified`) was
+  settled with the team rather than decided alone.
+- **A merge that duplicated a delete.** Bringing `main` into the OAuth branch
+  pulled in the file-attachments feature, which had added its own cleanup to
+  the account-deletion handler. The merge kept both that and the original
+  `prisma.user.delete`, so deletion wiped the account and then threw a `P2025`
+  on the second delete — a `500` that still destroyed the data, which a
+  status-code-blind test would have passed. Diagnosed from the stack trace and
+  a database check confirming the record was already gone, then resolved to a
+  single delete with attachment filenames collected before the cascade.
 - **A deployment failure with a misleading error.** A `POSTGRES_PASSWORD`
   containing URL-special characters (`@`, `:`, `/`, `#`) breaks `DATABASE_URL`,
   because the password is interpolated straight into a connection string. The
-  connection fails with an error about the host or the database, which points
-  at the wrong thing. Now documented in `.env.example` and in *Instructions*.
-
-> **Ade to expand:** the OAuth account-linking design, now it has landed, plus
-> anything else in your own words. This section is read individually at
-> evaluation, so it is worth being yours.
+  connection fails with an error about the host or the database, pointing at
+  the wrong thing. Now documented in `.env.example` and in *Instructions*.
 
 ### `mtocu` — Mihaela (Developer)
 
