@@ -5,8 +5,7 @@ import type { FastifyInstance } from "fastify"; // for type checking not code ex
 import bcrypt from "bcryptjs"; // bcryptjs is pure JS, works in Node 18+ without native modules
 import { z } from "zod";
 import { prisma } from "../prisma.js";
-import { signToken, AUTH_COOKIE, cookieOptions } from "../lib/auth.js";
-import { requireAuth, authedUserId } from "../lib/requireAuth.js";
+import { signToken, AUTH_COOKIE, cookieOptions, verifyToken } from "../lib/auth.js";
 
 // ---------- Validation schemas (Zod) ----------
 // These define what a VALID request body looks like. Anything that doesn't
@@ -85,7 +84,14 @@ export async function authRoutes(fastify: FastifyInstance) {
     if (!user) {
       return reply.code(401).send({ error: "Invalid email or password" });
     }
-
+    // Google-only account: passwordHash is null, so there's no password to
+    // check. Reject with the same generic 401 as a bad password — revealing
+    // "this is a Google account" would leak which emails exist and how they
+    // authenticate (same anti-enumeration reasoning as the !user case above).
+    if (user.passwordHash === null) {
+      return reply.code(401).send({ error: "Invalid email or password" });
+    }
+    
     const passwordOk = await bcrypt.compare(password, user.passwordHash);
     if (!passwordOk) {
       return reply.code(401).send({ error: "Invalid email or password" });
@@ -109,21 +115,46 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // ---------- GET /api/auth/me ----------
-  // "Who am I?" — guarded by requireAuth, which handles all the 401 cases
-  // and attaches request.userId.
-  fastify.get("/me", { preHandler: requireAuth }, async (request, reply) => {
-    const user = await prisma.user.findUnique({
-      where: { id: authedUserId(request) },
-      select: { id: true, email: true, displayName: true, avatarUrl: true },
-    });
+  // "Is anyone logged in, and who?" Deliberately not behind requireAuth:
+  // "nobody" is a valid answer, not an error, so every no-session case
+  // returns 200 { user: null }. The checks mirror requireAuth's three.
+  fastify.get("/me", async (request, reply) => {
+    // 1. No cookie: a visitor who isn't logged in.
+    const token = request.cookies[AUTH_COOKIE];
+    if (!token) {
+      return reply.send({ user: null });
+    }
 
+    // 2. Invalid token: expired, tampered, or signed by a different server - clear it so the browser doesn't keep sending it.
+    const payload = verifyToken(token);
+    if (!payload) {
+      reply.clearCookie(AUTH_COOKIE, { path: "/" });
+      return reply.send({ user: null });
+    }
+
+    // 3. User no longer exists: account deleted after the token was issued.
+    // One query both checks existence and fetches the user data we want to return.
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: {
+        id: true,
+        email: true,
+        displayName: true,
+        avatarUrl: true,
+        passwordHash: true, // fetched only to derive hasPassword below — never returned
+      },
+    });
     // requireAuth already confirmed the user exists, but between that check
     // and this query the account could theoretically be deleted. Handle it.
     if (!user) {
       reply.clearCookie(AUTH_COOKIE, { path: "/" });
-      return reply.code(401).send({ error: "Account no longer exists" });
+      return reply.send({ user: null });
     }
 
-    return reply.send({ user });
+    // Expose whether the account has a password (drives the delete-confirmation
+    // UI: password field vs. type-your-email). Strip the hash itself — only the
+    // derived boolean leaves the backend.
+    const { passwordHash, ...safeUser } = user;
+    return reply.send({ user: { ...safeUser, hasPassword: passwordHash !== null } });
   });
 }

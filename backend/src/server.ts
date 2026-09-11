@@ -11,8 +11,14 @@ import { profileRoutes } from "./routes/profile.js";
 import { attachmentsRoutes } from "./routes/attachments.js";
 import multipart from "@fastify/multipart";
 import fastifyStatic from "@fastify/static";
+import oauthPlugin from "@fastify/oauth2";
+import { oauthRoutes } from "./routes/oauth.js";
 
 const fastify = Fastify({ logger: true });
+
+if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET || !process.env.GOOGLE_CALLBACK_URL) {
+  throw new Error("Google OAuth env vars are not set. Check .env against .env.example.");
+}
 
 // Cookie support — needed to set/read the httpOnly auth cookie.
 await fastify.register(cookie);
@@ -30,6 +36,9 @@ await fastify.register(fastifyStatic, {
 // Auth endpoints live under /api/auth/*
 await fastify.register(authRoutes, { prefix: "/api/auth" });
 
+//oauth route
+await fastify.register(oauthRoutes, { prefix: "/api/auth" });
+
 // Friends endpoints live under /api/friends/*
 await fastify.register(friendsRoutes, { prefix: "/api/friends" });
 
@@ -41,6 +50,21 @@ await fastify.register(gdprRoutes, { prefix: "/api/account" });
 await fastify.register(wsRoutes, { prefix: "/api/ws" });
 
 await fastify.register(profileRoutes, { prefix: "/api/profile"});
+
+//Oauth checks
+await fastify.register(oauthPlugin, {
+  name: "googleOAuth2",
+  scope: ["profile", "email"],
+  discovery: { issuer: "https://accounts.google.com" },
+  credentials: {
+    client: {
+      id: process.env.GOOGLE_CLIENT_ID!,
+      secret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+  startRedirectPath: "/api/auth/google",
+  callbackUri: process.env.GOOGLE_CALLBACK_URL!,
+});
 
 // Attachment download and delete live under /api/attachments/*
 await fastify.register(attachmentsRoutes, { prefix: "/api/attachments" });

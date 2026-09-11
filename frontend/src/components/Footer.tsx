@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 // underline is what identifies them as links.
 const footerLink =
   "text-ink-muted rounded-sm transition-colors " +
-  "hover:text-ink hover:underline underline-offset-2" + 
+  "hover:text-ink hover:underline underline-offset-2 " + 
   "focus:outline-none focus-visible:ring-2 " +
   "focus-visible:ring-brand-500 focus-visible:ring-offset-2";
 
