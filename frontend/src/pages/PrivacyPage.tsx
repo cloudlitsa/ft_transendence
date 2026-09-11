@@ -1,17 +1,18 @@
 import { Link } from "react-router-dom";
+import Heading from "../components/ui/Heading";
 
 export default function PrivacyPage() {
   return (
     <main style={{ lineHeight: 1.6, paddingBottom: "2rem" }}>
-      <header style={{ marginBottom: "2rem" }}>
-        <h1 style={{ marginBottom: "0.5rem" }}>Privacy Policy</h1>
-        <p style={{ color: "#666", fontSize: "0.9rem" }}>
+      <header className="mb-8">
+        <Heading level={1} className="mb-2">Privacy Policy</Heading>
+        <p className="text-sm text-ink-muted">
           Last updated: September 2026 · Compliant with General Data Protection Regulation (GDPR)
         </p>
       </header>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>1. Overview & Commitment</h2>
+      <section className="mb-8">
+        <Heading level={2}>1. Overview & Commitment</Heading>
         <p>
           Check-in is designed with privacy-first architecture. Because check-in alerts and distress signals are sensitive personal data, we adhere strictly to the core principles of the <strong>General Data Protection Regulation (GDPR)</strong>: data minimisation, purpose limitation, storage limitation, transparency, and integrity.
         </p>
@@ -20,8 +21,8 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>2. Data We Collect</h2>
+      <section className="mb-8">
+       <Heading level={2}>2.  Data We Collect</Heading>
         <p>We only collect data strictly necessary to operate the service:</p>
         <ul>
           <li>
@@ -42,8 +43,8 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>3. Legal Basis for Processing</h2>
+      <section className="mb-8">
+        <Heading level={2}>3. Legal Basis for Processing</Heading>
         <p>We process your personal data under the following legal bases:</p>
         <ul>
           <li>
@@ -55,8 +56,8 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>4. Cookies</h2>
+      <section className="mb-8">
+        <Heading level={2}>4. Cookies</Heading>
         <p>
           We use only <strong>strictly necessary session cookies</strong>:
         </p>
@@ -73,8 +74,8 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>5. Technical Safeguards & Data Security</h2>
+      <section className="mb-8">
+        <Heading level={2}>5. Technical Safeguards & Data Security</Heading>
         <ul>
           <li>
             <strong>Transport Layer Security (HTTPS):</strong> All communications between your browser and our servers are encrypted via TLS/HTTPS through a reverse proxy.
@@ -91,8 +92,8 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>6. Your Rights Under GDPR</h2>
+      <section className="mb-8">
+        <Heading level={2}>6. Your Rights Under GDPR</Heading>
         <p>
           You have full control over your personal information under the General Data Protection Regulation:
         </p>
@@ -108,15 +109,15 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>7. Data Retention</h2>
+      <section className="mb-8">
+        <Heading level={2}>7. Data Retention</Heading>
         <p>
           Your data is retained only for as long as your account remains active. When you delete your account, all personal data and records — including your user profile, friendships, alerts, acknowledgements, messages, uploaded files, and avatars — are permanently and irreversibly purged from our database and our file storage immediately.
         </p>
       </section>
 
-      <section style={{ marginBottom: "2rem" }}>
-        <h2>8. Contact & Terms</h2>
+      <section className="mb-8">
+        <Heading level={2}>8. Contact & Terms</Heading>
         <p>
           For questions regarding data privacy, please reach out to the project team. For terms governing the use of this service, see our{" "}
           <Link to="/terms">Terms of Service</Link>.
