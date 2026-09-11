@@ -56,7 +56,7 @@ export default function LoginPage() {
       </form>
 
       <div className="mt-4 flex flex-col gap-2">
-        <div className={buttonClasses({ variant: "secondary", className: "w-full" })}>or</div>
+        <div className="text-center text-sm text-ink-muted">or</div>
          <a href="/api/auth/google"
           className={buttonClasses({ variant: "secondary", className: "w-full" })}
          >
