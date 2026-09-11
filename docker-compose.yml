@@ -53,6 +53,9 @@ services:
       SMTP_HOST: mailhog
       SMTP_PORT: 1025
       MAIL_FROM: "Check-in <no-reply@checkin.local>"
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL}
     depends_on:
       db:
         condition: service_healthy

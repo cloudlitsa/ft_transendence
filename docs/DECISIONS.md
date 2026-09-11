@@ -671,6 +671,19 @@ Note the contrast with the `bcrypt` case above: there, a compatible drop-in
 existed, so the right call was removing the findings rather than accepting
 them. Which situation you're in depends on whether an alternative exists.
 
+### OAuth account linking is one-directional.
+
+When a user logs in with Google, we link to an existing password account on the same email automatically — 
+but only when Google reports email_verified: true. We trust Google's verification of ownership, 
+not the user's unverified claim; linking on an unverified email would let someone pre-register 
+a password account on an address they don't own and have it taken over via Google.
+
+The reverse — a Google-only user adding a password — is not supported. 
+Signup returns 409 for any existing email regardless of how that account authenticates, 
+so a Google-only user cannot currently set a password. This is a deliberate MVP scope decision, not an oversight. 
+Reverse-linking would require a "set password" action on the profile/settings page, 
+available only to an already-authenticated user (proving they own the account) — 
+it cannot go through the public signup endpoint without opening an account-takeover hole. 
 ### Attachment images load eagerly
 
 Chrome's DevTools flags `loading="lazy"` on an image with no explicit
