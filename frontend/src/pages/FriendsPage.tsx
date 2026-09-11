@@ -42,6 +42,7 @@ export default function FriendsPage() { // the main component for the /friends p
   const [incoming, setIncoming] = useState<FriendEntry[]>([]);
   const [outgoing, setOutgoing] = useState<FriendEntry[]>([]);
   const [email, setEmail] = useState("");          // the add-friend input
+  const [emailError, setEmailError] = useState<string>();
   const [loading, setLoading] = useState(true); // true while we're waiting for the backend to respond. we show a "Loading…" message in this case.
 
   const toast = useToast(); // used to fire success/error/info notifications on actions
@@ -74,13 +75,18 @@ export default function FriendsPage() { // the main component for the /friends p
   // ---------- Actions ----------
   async function sendRequest(e: FormEvent) { // called when the user submits the add-friend form. e is the event object, which we can use to prevent the default form submission behavior.
     e.preventDefault(); // stop the browser doing a full-page form submit
+    setEmailError(undefined);
+    if (!email.trim()) {
+      setEmailError("Enter your friend's email address");
+      return;
+    }
     try {
       const res = await api.post<{ message: string }>("/friends/request", { email }); // the backend sends { message: "..." } from /friends/request. we pass the email in the request body.
       toast.info(res.message); // neutral message ("if that person has an account, they'll receive your request")
       setEmail("");
       refresh(); // outgoing list may have a new entry
     } catch (err) {
-      toast.error((err as Error).message); // e.g. "You can't send a request to yourself"
+      setEmailError((err as Error).message); // e.g. "You can't send a request to yourself"
     }
   }
 
@@ -149,7 +155,7 @@ export default function FriendsPage() { // the main component for the /friends p
               placeholder="friend@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              required
+              error={emailError}
             />
           </div>
           <div>
