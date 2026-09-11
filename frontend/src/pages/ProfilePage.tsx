@@ -19,6 +19,9 @@ export default function ProfilePage() {
 
   const [name, setName] = useState(user?.displayName ?? "");
   const [savingName, setSavingName] = useState(false);
+  
+  const [nameError, setNameError] = useState<string>();
+  const [deleteError, setDeleteError] = useState<string>();
 
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
@@ -38,9 +41,10 @@ export default function ProfilePage() {
   // ----- Save display name -----
   async function saveName(e: FormEvent) {
     e.preventDefault();
+    setNameError(undefined);
     const trimmed = name.trim();
     if (!trimmed) {
-      toast.error("Display name can't be empty");
+      setNameError("Display name can't be empty");
       return;
     }
     setSavingName(true);
@@ -49,7 +53,7 @@ export default function ProfilePage() {
       await refresh(); // update nav/name app-wide
       toast.success("Profile updated");
     } catch (err) {
-      toast.error((err as Error).message);
+      setNameError((err as Error).message);
     } finally {
       setSavingName(false);
     }
@@ -113,15 +117,15 @@ export default function ProfilePage() {
   //  GDPR: permanently delete my account
   async function deleteAccount(e: FormEvent) {
     e.preventDefault();
-
+    setDeleteError(undefined);
     if (user!.hasPassword) {
       if (!password) {
-        toast.error("Enter your password to confirm");
+        setDeleteError("Enter your password to confirm");
         return;
       }
     } else {
       if (confirmEmail !== user!.email) {
-        toast.error("Type your email address exactly to confirm");
+        setDeleteError("Type your email address exactly to confirm");
         return;
       }
     }
@@ -135,7 +139,7 @@ export default function ProfilePage() {
       await refresh();
       navigate("/");
     } catch (err) {
-      toast.error((err as Error).message);
+      setDeleteError((err as Error).message);
     } finally {
       setDeleting(false);
     }
@@ -210,6 +214,7 @@ export default function ProfilePage() {
               value={name}
               maxLength={50}
               onChange={(e) => setName(e.target.value)}
+              error={nameError}
             />
           </div>
           <div>
@@ -255,6 +260,7 @@ export default function ProfilePage() {
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                error={deleteError}
               />
             ) : (
               <Input
@@ -263,6 +269,7 @@ export default function ProfilePage() {
                 autoComplete="off"
                 value={confirmEmail}
                 onChange={(e) => setConfirmEmail(e.target.value)}
+                error={deleteError}
               />
             )}
 
@@ -275,7 +282,7 @@ export default function ProfilePage() {
               <Button
                 type="button"
                 variant="secondary"
-                onClick={() => { setConfirmingDelete(false); setPassword(""); setConfirmEmail(""); }}
+                onClick={() => { setConfirmingDelete(false); setPassword(""); setConfirmEmail(""); setDeleteError(undefined); }}
               >
                 Cancel
               </Button>
