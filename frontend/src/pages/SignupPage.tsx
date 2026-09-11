@@ -12,6 +12,7 @@ export default function SignupPage() {
   const [password, setPassword] = useState("");
   const [fieldErrors, setFieldErrors] = useState<{
     displayName?: string;
+    email?: string;
     password?: string;
   }>({});
   const [error, setError] = useState("");   // form-level, from the backend
@@ -30,6 +31,7 @@ export default function SignupPage() {
   // the user has to go and find.
   const next: typeof fieldErrors = {};
   if (displayName.trim().length < 1) next.displayName = "Display name is required";
+  if (email.trim().length < 1) next.email = "Email is required";
   if (password.length < 8) next.password = "Must be at least 8 characters";
 
   if (Object.keys(next).length > 0) {
@@ -58,6 +60,7 @@ export default function SignupPage() {
           type="text"
           autoComplete="off"
           value={displayName}
+          maxLength={50}
           error={fieldErrors.displayName}
           onChange={(e) => setDisplayName(e.target.value)}
         />
@@ -66,6 +69,7 @@ export default function SignupPage() {
           type="email"
           autoComplete="email"
           value={email}
+          error={fieldErrors.email}
           onChange={(e) => setEmail(e.target.value)}
         />
         <Input
@@ -80,8 +84,12 @@ export default function SignupPage() {
         <Button type="submit" loading={loading}>
           {loading ? "Creating account…" : "Sign up"}
         </Button>
+        {error && (
+          <p role="alert" className="text-sm text-danger-700">
+            {error}
+          </p>
+        )}
       </form>
-
       <div className="mt-4 flex flex-col gap-2">
         <div className="text-center text-sm text-ink-muted">or</div>
          <a href="/api/auth/google"
@@ -90,12 +98,6 @@ export default function SignupPage() {
           Continue with Google
         </a>
       </div>
-
-      {error && (
-        <p role="alert" className="mt-4 text-sm text-danger-700">
-          {error}
-        </p>
-      )}
     </main>
   );
 }
