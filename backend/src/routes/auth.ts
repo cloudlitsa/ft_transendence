@@ -6,7 +6,6 @@ import bcrypt from "bcryptjs"; // bcryptjs is pure JS, works in Node 18+ without
 import { z } from "zod";
 import { prisma } from "../prisma.js";
 import { signToken, AUTH_COOKIE, cookieOptions, verifyToken } from "../lib/auth.js";
-import { authedUserId } from "../lib/requireAuth.js";
 
 // ---------- Validation schemas (Zod) ----------
 // These define what a VALID request body looks like. Anything that doesn't
