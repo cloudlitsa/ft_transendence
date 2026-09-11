@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 // Footer links underline on hover. Unlike the nav, they sit in a line of
 // grey text with no bar and no hover background to mark them, so the
 // underline is what identifies them as links.
-const footerLink =
+export const footerLink =
   "text-ink-muted rounded-sm transition-colors " +
   "hover:text-ink hover:underline underline-offset-2" + 
   "focus:outline-none focus-visible:ring-2 " +
