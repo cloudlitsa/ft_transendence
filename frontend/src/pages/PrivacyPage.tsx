@@ -1,9 +1,17 @@
 import { Link } from "react-router-dom";
 import Heading from "../components/ui/Heading";
 
+const listClasses = "list-disc pl-6 space-y-2";
+// Links inside a sentence need a cue besides colour (WCAG 1.4.1), so they
+// keep a soft underline. Footer links stand alone in a nav, so hover-only is fine there.
+const textLink =
+  "text-brand-600 underline decoration-brand-600/40 underline-offset-2 " +
+  "hover:decoration-brand-600 rounded-sm " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2";
+
 export default function PrivacyPage() {
   return (
-    <main style={{ lineHeight: 1.6, paddingBottom: "2rem" }}>
+    <main className="leading-relaxed pb-8">
       <header className="mb-8">
         <Heading level={1} className="mb-2">Privacy Policy</Heading>
         <p className="text-sm text-ink-muted">
@@ -11,7 +19,7 @@ export default function PrivacyPage() {
         </p>
       </header>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>1. Overview & Commitment</Heading>
         <p>
           Check-in is designed with privacy-first architecture. Because check-in alerts and distress signals are sensitive personal data, we adhere strictly to the core principles of the <strong>General Data Protection Regulation (GDPR)</strong>: data minimisation, purpose limitation, storage limitation, transparency, and integrity.
@@ -21,10 +29,10 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
        <Heading level={2}>2.  Data We Collect</Heading>
         <p>We only collect data strictly necessary to operate the service:</p>
-        <ul>
+        <ul className={listClasses}>
           <li>
             <strong>Account Data:</strong> Your email address, display name, profile avatar (if uploaded), and a salted password hash. We <em>never</em> store your plaintext password.
           </li>
@@ -43,10 +51,10 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>3. Legal Basis for Processing</Heading>
         <p>We process your personal data under the following legal bases:</p>
-        <ul>
+        <ul className={listClasses}>
           <li>
             <strong>Performance of a Contract:</strong> To deliver real-time check-in alerts, socket broadcasts, and messaging to your designated, mutually-accepted circle of friends.
           </li>
@@ -56,12 +64,12 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>4. Cookies</Heading>
         <p>
           We use only <strong>strictly necessary session cookies</strong>:
         </p>
-        <ul>
+        <ul className={listClasses}>
           <li>
             <strong><code>auth_token</code>:</strong> A JSON Web Token (JWT) containing only your unique user identifier.
           </li>
@@ -74,9 +82,9 @@ export default function PrivacyPage() {
         </p>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>5. Technical Safeguards & Data Security</Heading>
-        <ul>
+        <ul className={listClasses}>
           <li>
             <strong>Transport Layer Security (HTTPS):</strong> All communications between your browser and our servers are encrypted via TLS/HTTPS through a reverse proxy.
           </li>
@@ -92,12 +100,12 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>6. Your Rights Under GDPR</Heading>
         <p>
           You have full control over your personal information under the General Data Protection Regulation:
         </p>
-        <ul>
+        <ul className={listClasses}>
           <li>
             <strong>Right of Access & Data Portability (Article 15 & 20):</strong> You have the right to obtain and download a complete, machine-readable JSON copy of all data stored in relation to your account (account profile, friendships, alerts, acknowledgements, messages, and uploaded file attachments).
           </li>
@@ -109,18 +117,17 @@ export default function PrivacyPage() {
         </ul>
       </section>
 
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>7. Data Retention</Heading>
         <p>
           Your data is retained only for as long as your account remains active. When you delete your account, all personal data and records — including your user profile, friendships, alerts, acknowledgements, messages, uploaded files, and avatars — are permanently and irreversibly purged from our database and our file storage immediately.
         </p>
       </section>
-
-      <section className="mb-8">
+      <section className="mb-8 space-y-4">
         <Heading level={2}>8. Contact & Terms</Heading>
         <p>
           For questions regarding data privacy, please reach out to the project team. For terms governing the use of this service, see our{" "}
-          <Link to="/terms">Terms of Service</Link>.
+          <Link to="/terms" className={textLink}>Terms of Service</Link>.
         </p>
       </section>
     </main>

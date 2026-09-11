@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
 import Heading from "../components/ui/Heading";
 import Banner from "../components/ui/Banner";
-import { footerLink } from "../components/Footer";
 
 const listClasses = "list-disc pl-6 space-y-2";
+// Links inside a sentence need a cue besides colour (WCAG 1.4.1), so they
+// keep a soft underline. Footer links stand alone in a nav, so hover-only is fine there.
+const textLink =
+  "text-brand-600 underline decoration-brand-600/40 underline-offset-2 " +
+  "hover:decoration-brand-600 rounded-sm " +
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2";
+
 export default function TermsPage() {
   return (
-    
     <main className="leading-relaxed pb-8">
       <header className="mb-8">
         <Heading level={1} className="mb-2">Terms of Service</Heading>
@@ -103,7 +108,7 @@ export default function TermsPage() {
         <Heading level={2}>8. Contact & Privacy</Heading>
         <p>
           For information on how we collect, store, and protect your personal data, please review our{" "}
-          <Link to="/privacy" className={footerLink}>
+          <Link to="/privacy" className={textLink}>
             Privacy Policy
           </Link>.
         </p>
