@@ -200,10 +200,10 @@ at a user cascades on delete — which is what makes the GDPR erasure right work
 
 | Table | What it holds | Key fields |
 |---|---|---|
-| `users` | Accounts | `id` UUID PK · `email` text, unique · `password_hash` text · `display_name` text · `avatar_url` text, nullable · `created_at` / `updated_at` timestamptz |
+| `users` | Accounts | `id` UUID PK · `email` text, unique · `password_hash` text, **nullable** (null for Google-only accounts) · `google_id` text, unique, nullable · `display_name` text · `avatar_url` text, nullable · `created_at` / `updated_at` timestamptz |
 | `friendships` | One row per pair, in either direction | `id` UUID PK · `user_id_a` / `user_id_b` UUID FK → users · `status` (pending / accepted / blocked) · `requester_id` UUID, so the receiving side can be told apart from the sending side |
 | `alerts` | The check-ins | `id` UUID PK · `sender_id` UUID FK → users · `type` (need a chat / not okay / reach out) · `status` (active / closed) · `note` text, nullable · `created_at` timestamptz |
-| `acknowledgements` | One row per friend per alert — "I see you" | `id` UUID PK · `alert_id` UUID FK → alerts · `user_id` UUID FK → users · unique on the pair, so a double-click cannot record two |
+| `acknowledgements` | One row per friend per alert — "I see you" | `alert_id` + `user_id` **composite PK** (both FK, to alerts and users) · `acknowledged_at` timestamptz. The pair being the primary key is what makes a duplicate impossible — a double-click cannot record two |
 | `messages` | Chat, attached to an alert | `id` UUID PK · `alert_id` UUID FK → alerts · `sender_id` UUID FK → users · `content` text · `created_at` timestamptz · index on `(alert_id, created_at)` |
 | `attachments` | A file hanging off a message | `id` UUID PK · `message_id` UUID FK → messages · `filename` text (the stored `<uuid>.<ext>`) · `original_name` text (for display and download) · `mime_type` text · `size` int · `created_at` timestamptz · `deleted_at` timestamptz nullable · index on `message_id` |
 
@@ -256,11 +256,21 @@ ever sending a second check-in after closing the first; `WHERE status =
    cp .env.example .env
    ```
 
-2. Edit `.env` and set values. You MUST set:
-   - `POSTGRES_PASSWORD` — any strong password. To avoid @, :, / and #
+2. Edit `.env` and set values. You MUST set all of these — the backend refuses
+   to start if any is missing, which is deliberate: a loud failure at startup
+   beats a server that runs and then breaks at sign-in.
+ 
+   - `POSTGRES_PASSWORD` — any strong password. Avoid `@`, `:`, `/` and `#`:
+     the password is interpolated into `DATABASE_URL`, and those characters
+     break the connection string with a misleading error about the host.
    - `JWT_SECRET` — generate one with: `openssl rand -base64 48`
-
-   The backend will refuse to start if `JWT_SECRET` is missing — this is deliberate.
+   - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — from a Google Cloud OAuth
+     2.0 Client ID (Web application). Create one at
+     https://console.cloud.google.com/apis/credentials
+   - `GOOGLE_CALLBACK_URL` — `https://localhost/api/auth/google/callback`,
+     which must also be listed as an Authorised redirect URI on that client.
+ 
+   Every key in `.env.example` needs a value. To check nothing is missing:
 
 3. Generate a local TLS certificate. Everything reaches the app through an HTTPS
    reverse proxy, so this is required before the containers will start:
@@ -288,7 +298,7 @@ ever sending a second check-in after closing the first; `WHERE status =
 
 5. Create the database tables:
    ```
-   docker compose exec backend npx prisma migrate dev
+   docker compose exec backend npx prisma migrate deploy
    ```
    The database starts empty. Until you run this, the app will start but
    every request that touches the database will fail.
@@ -300,7 +310,7 @@ ever sending a second check-in after closing the first; `WHERE status =
 
 7. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
    ```
-   google-chrome --incognito --user-data-dir=/tmp/session1 http://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 http://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 http://localhost &
+   google-chrome --incognito --user-data-dir=/tmp/session1 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 https://localhost &
    ```
 
 8. *(Optional, for editor support)* Install dependencies on the host too:
@@ -340,6 +350,8 @@ handling. See `docs/DEVELOPMENT.md`.
 | Caddy won't start | Missing or misnamed certificates | Re-run step 3; check the paths in `Caddyfile` |
 | `container name "/checkin_x" is already in use` | Another copy of this project is running | `docker compose down` in the other copy first — see note below |
 | Emails not arriving | Dev mail goes to Mailhog | Open `localhost:8025`, not a real inbox |
+| Backend exits immediately on first start | A `GOOGLE_*` variable is missing from `.env` | `docker compose logs backend` names it; add it and `docker compose up -d --force-recreate backend` |
+| Old version of a page keeps appearing | The dev service worker is serving cached files | Open in Incognito to confirm, then DevTools → Application → Storage → Clear site data |
 
 **Only one copy of this project can run at a time.** Container names are fixed
 in `docker-compose.yml` (`checkin_proxy`, `checkin_db`, and so on), and Docker
@@ -375,7 +387,9 @@ Everything the app does, and who built it. Module points are claimed in
 | Feature | What it does | Built by |
 |---|---|---|
 | **Sign up / log in / log out** | Email and password accounts. Passwords hashed with bcrypt at cost 12; session held in an httpOnly, Secure, SameSite=Lax cookie. Login returns one error for both a wrong password and an unknown email, so the form cannot be used to discover which addresses have accounts. | evmouka, mosokina |
-| **Route guard** | Authenticated pages redirect to login when there is no valid session; `GET /api/auth/me` is the single session check. | evmouka |
+| **Route guard** | Authenticated pages redirect to login when there is no valid session; `GET /api/auth/me` is the single session check. It answers 200 with `{ user: null }` when nobody is logged in —
+'nobody' is a valid answer, not an error, and a 401 put red errors in a
+logged-out visitor's console. | evmouka |
 | **Profile** | View and edit your display name, upload and remove an avatar, with a default shown when none is set. | mosokina |
 | **Public profile** | A read-only view of another user — name, avatar, online status — reachable from the friends list. | mosokina |
 | **Friends** | Send, accept, decline and cancel requests; list friends; unfriend. Nothing is shared until both sides accept. | evmouka, mosokina |
@@ -390,7 +404,7 @@ Everything the app does, and who built it. Module points are claimed in
 | **Toast notifications** | Success, error and info toasts on every create, update and delete action, auto-dismissing after three seconds. | mosokina |
 | **Install and offline** | Installable to the home screen or desktop; the app shell loads from cache with no connection, and a banner tells the user live data is unavailable. | mosokina |
 | **Download my data** | A JSON export of everything the app holds about you, with the password hash omitted and internal filenames stripped. | mosokina, evmouka |
-| **Delete my account** | Password-confirmed erasure. Cascade removes every row; the route also unlinks the user's uploaded files and avatar from disk. | mosokina, evmouka |
+| **Delete my account** | Confirmed erasure — by password, or by typing your own email address for Google-only accounts that have no password.
 | **Confirmation emails** | Both data operations send an email. Fire-and-forget, so a mail failure never blocks an export or a deletion. | mosokina |
 | **Design system** | Design tokens, a 15-glyph icon registry and ten reusable components, with the accessibility model built into the components rather than bolted on. | evmouka |
 | **Terms and Privacy** | Both pages written for this app rather than templated, linked from a global footer on every page. | mtocu |
@@ -1221,9 +1235,6 @@ several pull requests.
   UI changes. They still had to be revised when file attachments were added,
   since the data the app holds changed.
 
-> **Mihaela to expand:** add anything else in your own words, and confirm the
-> attachment revision landed.
-
 ---
 ## 10. Project Structure
 
@@ -1233,10 +1244,10 @@ certs/                  Local TLS certificate and key (gitignored, per machine)
 backend/                Fastify + TypeScript API
   prisma/               Database schema and migrations
   src/
-    lib/                Shared helpers (auth.ts, requireAuth.ts, mail.ts,
-                        wsRegistry.ts, fileStorage.ts, alertAccess.ts)
-    routes/             API endpoints (auth.ts, friends.ts, gdpr.ts, alerts.ts,
-                        messages.ts, attachments.ts, profile.ts, ws.ts)
+        lib/                Shared helpers (auth.ts, requireAuth.ts, alertAccess.ts,
+                        friendships.ts, fileStorage.ts, wsRegistry.ts, mail.ts)
+    routes/             API endpoints (auth.ts, oauth.ts, friends.ts, alerts.ts,
+                        messages.ts, attachments.ts, profile.ts, gdpr.ts, ws.ts)
     prisma.ts           Shared PrismaClient instance
     server.ts           App entry: plugin registration, health check
 docs/                   Project documentation (PROJECT, DEVELOPMENT, DECISIONS,
@@ -1249,8 +1260,8 @@ frontend/               React + TypeScript app
       ui/               Design system components (Button, Spinner, Input,
                         FormField, Icon, Card, Badge, Banner, Heading,
                         EmptyState)
-    lib/                API client (api.ts), auth context, presence context,
-                        alert socket hook
+      lib/              API client (api.ts) and the React contexts — auth,
+                        alerts, messages, presence — plus the alert socket hook
     pages/              Route pages (Home, Login, Signup, Friends, Alerts,
                         Conversation, Profile, UserProfile, Terms, Privacy)
     index.css           Design tokens (@theme): palette and typography
@@ -1275,6 +1286,23 @@ it deliberately does not name an endpoint or a settings screen, because a legal
 page that promises a specific mechanism goes stale the moment the UI changes.
 The backend implementing those rights is documented under *GDPR Compliance*
 above.
+
+Both pages were converted to the design system rather than left on the inline
+styles they were first written with. That conversion is where two decisions
+worth naming were made. The "not an emergency service" notice is amber, not
+red: red is reserved for errors and destructive actions, and a red notice
+saying the app is not an emergency service would contradict the very thing it
+says — the same reasoning that makes the check-in button amber. The notice is
+also not a live region. `role="alert"` interrupts a screen reader the moment it
+appears, which is right for a validation error that appears in response to
+something, and wrong for permanent page furniture that would announce itself on
+every visit. `Banner` gained a `live` prop for exactly this case.
+
+The pages are also the clearest example of why links inside a block of text
+keep an underline while the footer's links do not. A footer link sits alone in
+a labelled nav, so its position identifies it. A link in the middle of a
+sentence has nothing but colour to distinguish it, and colour alone is not
+enough (WCAG 1.4.1), so those keep a soft underline that strengthens on hover.
 
 ---
 
