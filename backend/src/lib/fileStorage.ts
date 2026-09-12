@@ -234,17 +234,17 @@ export async function storeFile(opts: {
 // ---------- Remove ----------
 
 /**
- * Delete a stored file. Best-effort by design.
- *
- * Called from two places that must not fail because of it:
- *
- *     - the rollback in the message route, when the transaction throws after
- *       the file was already written
- *     - the delete routes, where the row is what the user is removing
- *
- * In both, a file that is already gone is a fine outcome, so errors are
- * swallowed. This is the same rule the avatar routes have always followed.
+ * Remove a file. Returns true if it is gone (including if it was already
+ * missing), false if the unlink actually failed — callers that care can log
+ * the orphan.
  */
-export async function removeFile(dir: string, filename: string): Promise<void> {
-  await unlink(path.join(dir, filename)).catch(() => {});
+export async function removeFile(dir: string, filename: string): Promise<boolean> {
+  try {
+    await unlink(path.join(dir, filename));
+    return true;
+  } catch (err) {
+    // Already gone is success: the goal is that file isn't there.
+    if ((err as NodeJS.ErrnoException).code == "ENOENT")  return true;
+    return false;
+  }
 }
