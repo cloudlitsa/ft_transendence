@@ -332,12 +332,6 @@ To stop: `docker compose down`
 
 **Contributor.** evmouka, mtocu
 
-### After pulling someone else's branch
-
-Pulling a teammate's branch is different from cloning fresh — new
-dependencies, new migrations and a stale generated Prisma client all need
-handling. See `docs/DEVELOPMENT.md`.
-
 ### Troubleshooting
 
 | Symptom | Cause | Fix |
@@ -370,13 +364,6 @@ now. Always check the timestamp before debugging it:
 docker compose logs --tail=100 --timestamps frontend
 ```
 
-**Before committing frontend changes**, run the type check. The Vite dev server
-strips types without checking them, so a type error can sit invisible in the
-browser until the production build fails:
-
-```
-docker compose exec frontend npx tsc --noEmit
-```
 ---
 
 ## 7. Features List
@@ -724,20 +711,47 @@ connection drops.
 - The **manifest** (`frontend/vite.config.js`) defines the app name, icons
   (192, 512, and a maskable variant), theme colours, `display: standalone`,
   and install screenshots — making the app installable.
-- The **service worker** precaches the built app shell (HTML, JS, icons) and
-  falls back to `index.html` for all client-side routes, so the app loads
-  offline from cache.
+- The **service worker** caches the app shell: `index.html`, the JS and CSS
+  bundles, the manifest and the icons (10 files). It falls back to
+  `index.html` for all client-side routes, so the app loads offline from cache.
 - An **offline banner** (`frontend/src/components/OfflineBanner.tsx`) listens to
   the browser's `online`/`offline` events and tells the user when live data is
   unavailable.
+- **Live data is not cached, by design.** Offline, the app opens, but alerts,
+  friends and chat do not load. Showing old copies of them would give a wrong
+  picture of who needs help.
 
-**How to verify.**
-1. `docker compose up --build`, then build the frontend (`docker compose exec
-   frontend npm run build`) and serve `frontend/dist/` — offline caching only
-   works on a production build, not the Vite dev server.
-2. Chrome → address bar shows an **install** icon → installs into its own window.
-3. DevTools → Network → **Offline** → reload → the app still loads, and the
-   offline banner appears.
+**How to verify.** Full walkthrough: `docs/pwa-demo.md`.
+
+This needs a **production build**. The dev server's service worker caches only
+two files, so offline does not work there. The build is served on port 4173,
+not through Caddy, because Caddy always forwards to the dev server.
+
+1. **Build and serve:**
+   ```bash
+   docker compose exec frontend npm run build   # prints "precache 10 entries"
+   docker compose stop frontend
+   docker compose run --rm -p 4173:4173 frontend npx vite preview --host --port 4173
+   ```
+   Open **http://localhost:4173** (not https://localhost). Service workers
+   work on `http://localhost` without TLS.
+
+   **Do not log in on 4173:** it is plain HTTP, so credentials would be sent
+   unencrypted. Use it only for the offline and install checks below.
+2. **Remove any old service worker:** DevTools → Application → Service workers
+   → **Unregister**. Then open http://localhost:4173 in a new tab. Skip this if
+   you have never opened 4173 in this browser.
+3. **Check it is the build:** DevTools → Application → Service workers shows
+   `sw.js` (not `dev-sw.js`) as activated and running. Application → Cache
+   storage → `workbox-precache` lists the 10 files.
+4. **Go offline:** DevTools → Network → **Offline**, with the page open. The
+   red offline banner appears. Reload: the app still loads, and the Network
+   panel shows 0 requests sent.
+5. **Install:** click the install icon in the address bar. The app opens in its
+   own window.
+6. **Go back to dev:** stop the preview with Ctrl+C, then run
+   `docker compose up -d frontend`. The demo's service worker belongs only to
+   http://localhost:4173, so https://localhost is not affected.
 
 **Scope note.** Web-push notifications (waking the user when a friend sends an
 alert while the app is closed) are planned as a follow-up. They depend on the
@@ -847,9 +861,7 @@ enforced structurally rather than by remembering to be consistent.
 **Scope note.** The module requires a palette, typography, icons and 10+
 reusable components. All four are in place. The components are the ones the app
 actually uses — none were written purely to reach the count, which is why the
-list stops at ten rather than being inflated with near-duplicates. Adoption
-across the remaining pages is tracked as TRAN-45; the components and tokens
-themselves are complete.
+list stops at ten rather than being inflated with near-duplicates.
 
 **Contributor.** evmouka
 
@@ -1382,9 +1394,3 @@ most directly:
 **Where AI was not used.** Product and scope decisions, the module strategy,
 the database design, and the Terms of Service and Privacy Policy were written
 by the team.
-
-> **Before submission:** each member should confirm this describes their own
-> use, and add anything specific to them. The subject requires the description
-> to specify which tasks and which parts of the project — an evaluator may ask
-> each person individually how they used AI, so the section needs to be true of
-> everyone it covers.
