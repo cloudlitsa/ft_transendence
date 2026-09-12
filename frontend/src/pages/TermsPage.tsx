@@ -61,10 +61,10 @@ export default function TermsPage() {
       <section className="mb-8 space-y-4">
         <Heading level={2}>3. User Accounts and Security</Heading>
         <p>
-          To access the service, you must create an account using a valid email address and password.
+          To access the service, you must create an account, either with a valid email address and password, or by signing in with Google.
         </p>
         <ul className={listClasses}>
-          <li>You are responsible for safeguarding your password and account credentials.</li>
+          <li>You are responsible for safeguarding your password and account credentials, or your Google account if you sign in with it.</li>
           <li>You agree to provide accurate information and not impersonate any person or entity.</li>
           <li>Each user is limited to one active check-in at any given time.</li>
         </ul>
