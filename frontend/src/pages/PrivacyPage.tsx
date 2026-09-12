@@ -37,7 +37,7 @@ export default function PrivacyPage() {
             <strong>Account Data:</strong> Your email address, display name, and profile avatar (if uploaded). If you sign up with an email and password, we also store a salted password hash — we <em>never</em> store your plaintext password. If you sign in with Google, we store the account identifier Google gives us so we can recognise you on your next visit; Google-only accounts have no password, while accounts linked to an existing email-and-password account retain their existing salted password hash.
           </li>
           <li>
-            <strong>Data From Google Sign-In:</strong> If you choose to sign in with Google, Google shares your name and email address with us, which we use to create or recognise your account. We request nothing beyond that, and we do not post or read anything in your Google account. Google's own handling of that sign-in is governed by Google's privacy policy, not ours.
+            <strong>Data From Google Sign-In:</strong> If you choose to sign in with Google, Google provides your name, email address, stable account identifier, and email-verification status. We use these to create or recognise your account and do not access other Google services or post or read anything else in your Google account. Google's own handling of that sign-in is governed by Google's privacy policy, not ours.
           </li>
           <li>
             <strong>Relationship Data:</strong> Confirmed friendships and pending friend invitations, including timestamps and who initiated the request.
