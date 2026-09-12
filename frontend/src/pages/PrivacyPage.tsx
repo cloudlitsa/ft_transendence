@@ -30,11 +30,14 @@ export default function PrivacyPage() {
       </section>
 
       <section className="mb-8 space-y-4">
-       <Heading level={2}>2.  Data We Collect</Heading>
+       <Heading level={2}>2. Data We Collect</Heading>
         <p>We only collect data strictly necessary to operate the service:</p>
         <ul className={listClasses}>
           <li>
-            <strong>Account Data:</strong> Your email address, display name, profile avatar (if uploaded), and a salted password hash. We <em>never</em> store your plaintext password.
+            <strong>Account Data:</strong> Your email address, display name, and profile avatar (if uploaded). If you sign up with an email and password, we also store a salted password hash — we <em>never</em> store your plaintext password. If you sign in with Google, we store the account identifier Google gives us so we can recognise you on your next visit; Google-only accounts have no password, while accounts linked to an existing email-and-password account retain their existing salted password hash.
+          </li>
+          <li>
+            <strong>Data From Google Sign-In:</strong> If you choose to sign in with Google, Google provides your name, email address, stable account identifier, and email-verification status. We use these to create or recognise your account and do not access other Google services or post or read anything else in your Google account. Google's own handling of that sign-in is governed by Google's privacy policy, not ours.
           </li>
           <li>
             <strong>Relationship Data:</strong> Confirmed friendships and pending friend invitations, including timestamps and who initiated the request.
@@ -89,7 +92,7 @@ export default function PrivacyPage() {
             <strong>Transport Layer Security (HTTPS):</strong> All communications between your browser and our servers are encrypted via TLS/HTTPS through a reverse proxy.
           </li>
           <li>
-            <strong>Password Hashing:</strong> Passwords are cryptographically salted and hashed using <strong>bcrypt</strong> (cost factor 12) before being stored.
+            <strong>Password Hashing:</strong> Where an account has a password, it is cryptographically salted and hashed using <strong>bcrypt</strong> (cost factor 12) before being stored. Accounts created through Google sign-in have no stored password.
           </li>
           <li>
             <strong>Database Query Scoping:</strong> Sensitive fields (such as password hashes) are explicitly excluded from database queries and can never leak into API responses or data exports.
