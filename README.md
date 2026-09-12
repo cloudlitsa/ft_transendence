@@ -202,7 +202,7 @@ at a user cascades on delete — which is what makes the GDPR erasure right work
 |---|---|---|
 | `users` | Accounts | `id` UUID PK · `email` text, unique · `password_hash` text, **nullable** (null for Google-only accounts) · `google_id` text, unique, nullable · `display_name` text · `avatar_url` text, nullable · `created_at` / `updated_at` timestamptz |
 | `friendships` | One row per pair, in either direction | `id` UUID PK · `user_id_a` / `user_id_b` UUID FK → users · `status` (pending / accepted / blocked) · `requester_id` UUID, so the receiving side can be told apart from the sending side |
-| `alerts` | The check-ins | `id` UUID PK · `sender_id` UUID FK → users · `type` (need a chat / not okay / reach out) · `status` (active / closed) · `note` text, nullable · `created_at` timestamptz |
+| `alerts` | The check-ins | `id` UUID PK · `sender_id` UUID FK → users · `alert_type` enum (`need_chat` / `not_okay` / `reach_out`) · `status` enum (active / closed), default active · `note` text, nullable · `created_at` timestamptz · `closed_at` timestamptz, nullable |
 | `acknowledgements` | One row per friend per alert — "I see you" | `alert_id` + `user_id` **composite PK** (both FK, to alerts and users) · `acknowledged_at` timestamptz. The pair being the primary key is what makes a duplicate impossible — a double-click cannot record two |
 | `messages` | Chat, attached to an alert | `id` UUID PK · `alert_id` UUID FK → alerts · `sender_id` UUID FK → users · `content` text · `created_at` timestamptz · index on `(alert_id, created_at)` |
 | `attachments` | A file hanging off a message | `id` UUID PK · `message_id` UUID FK → messages · `filename` text (the stored `<uuid>.<ext>`) · `original_name` text (for display and download) · `mime_type` text · `size` int · `created_at` timestamptz · `deleted_at` timestamptz nullable · index on `message_id` |
@@ -270,7 +270,7 @@ ever sending a second check-in after closing the first; `WHERE status =
    - `GOOGLE_CALLBACK_URL` — `https://localhost/api/auth/google/callback`,
      which must also be listed as an Authorised redirect URI on that client.
  
-   Every key in `.env.example` needs a value. To check nothing is missing:
+   Every key in `.env.example` needs a value.
 
 3. Generate a local TLS certificate. Everything reaches the app through an HTTPS
    reverse proxy, so this is required before the containers will start:
@@ -387,9 +387,7 @@ Everything the app does, and who built it. Module points are claimed in
 | Feature | What it does | Built by |
 |---|---|---|
 | **Sign up / log in / log out** | Email and password accounts. Passwords hashed with bcrypt at cost 12; session held in an httpOnly, Secure, SameSite=Lax cookie. Login returns one error for both a wrong password and an unknown email, so the form cannot be used to discover which addresses have accounts. | evmouka, mosokina |
-| **Route guard** | Authenticated pages redirect to login when there is no valid session; `GET /api/auth/me` is the single session check. It answers 200 with `{ user: null }` when nobody is logged in —
-'nobody' is a valid answer, not an error, and a 401 put red errors in a
-logged-out visitor's console. | evmouka |
+| **Route guard** | Authenticated pages redirect to login when there is no valid session; `GET /api/auth/me` is the single session check. It answers 200 with `{ user: null }` when nobody is logged in — 'nobody' is a valid answer, not an error, and a 401 put red errors in a logged-out visitor's console. | evmouka |
 | **Profile** | View and edit your display name, upload and remove an avatar, with a default shown when none is set. | mosokina |
 | **Public profile** | A read-only view of another user — name, avatar, online status — reachable from the friends list. | mosokina |
 | **Friends** | Send, accept, decline and cancel requests; list friends; unfriend. Nothing is shared until both sides accept. | evmouka, mosokina |
@@ -407,7 +405,7 @@ logged-out visitor's console. | evmouka |
 | **Delete my account** | Confirmed erasure — by password, or by typing your own email address for Google-only accounts that have no password.
 | **Confirmation emails** | Both data operations send an email. Fire-and-forget, so a mail failure never blocks an export or a deletion. | mosokina |
 | **Design system** | Design tokens, a 15-glyph icon registry and ten reusable components, with the accessibility model built into the components rather than bolted on. | evmouka |
-| **Terms and Privacy** | Both pages written for this app rather than templated, linked from a global footer on every page. | mtocu |
+| **Terms and Privacy** | Both pages written for this app rather than templated, linked from a global footer on every page, and revised as the product changed — for file attachments, then for password-less Google accounts. | mtocu |
 | **HTTPS and the proxy** | Caddy terminates TLS as the single public entry point; no other container publishes an application port. | evmouka |
 
 ---
@@ -1244,7 +1242,7 @@ certs/                  Local TLS certificate and key (gitignored, per machine)
 backend/                Fastify + TypeScript API
   prisma/               Database schema and migrations
   src/
-        lib/                Shared helpers (auth.ts, requireAuth.ts, alertAccess.ts,
+    lib/                Shared helpers (auth.ts, requireAuth.ts, alertAccess.ts,
                         friendships.ts, fileStorage.ts, wsRegistry.ts, mail.ts)
     routes/             API endpoints (auth.ts, oauth.ts, friends.ts, alerts.ts,
                         messages.ts, attachments.ts, profile.ts, gdpr.ts, ws.ts)
@@ -1304,6 +1302,12 @@ a labelled nav, so its position identifies it. A link in the middle of a
 sentence has nothing but colour to distinguish it, and colour alone is not
 enough (WCAG 1.4.1), so those keep a soft underline that strengthens on hover.
 
+The documents were revised again when Google sign-in was added. Some accounts
+now have no password at all, so the Privacy Policy's account-data section had
+to describe what is actually held — a Google account identifier instead of a
+password hash, and the name and email address that Google shares on sign-in.
+Keeping a legal page accurate as the product changes is part of the work, not a
+one-off task at the start.
 ---
 
 ## 12. Resources & AI Usage
