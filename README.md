@@ -402,7 +402,7 @@ Everything the app does, and who built it. Module points are claimed in
 | **Toast notifications** | Success, error and info toasts on every create, update and delete action, auto-dismissing after three seconds. | mosokina |
 | **Install and offline** | Installable to the home screen or desktop; the app shell loads from cache with no connection, and a banner tells the user live data is unavailable. | mosokina |
 | **Download my data** | A JSON export of the data the app holds about you — profile, friendships, alerts, acknowledgements, messages — with credentials (password hash, Google id) omitted and internal filenames stripped. | mosokina, evmouka |
-| **Delete my account** | Password-confirmed erasure. Cascade removes every row; the route also unlinks the user's uploaded files and avatar from disk. | mosokina, evmouka |
+| **Delete my account** | Confirmed erasure — by password, or by typing your own email address for Google-only accounts that have no password. | mosokina, evmouka |
 | **Confirmation emails** | Both data operations send an email. Fire-and-forget, so a mail failure never blocks an export or a deletion. | mosokina |
 | **Design system** | Design tokens, a 15-glyph icon registry and ten reusable components, with the accessibility model built into the components rather than bolted on. | evmouka |
 | **Terms and Privacy** | Both pages written for this app rather than templated, linked from a global footer on every page, and revised as the product changed — for file attachments, then for password-less Google accounts. | mtocu |
