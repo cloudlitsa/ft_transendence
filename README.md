@@ -269,7 +269,7 @@ ever sending a second check-in after closing the first; `WHERE status =
      https://console.cloud.google.com/apis/credentials
    - `GOOGLE_CALLBACK_URL` — `https://localhost/api/auth/google/callback`,
      which must also be listed as an Authorised redirect URI on that client.
- 
+
    Every key in `.env.example` needs a value.
 
 3. Generate a local TLS certificate. Everything reaches the app through an HTTPS
@@ -1272,7 +1272,7 @@ frontend/               React + TypeScript app
       ui/               Design system components (Button, Spinner, Input,
                         FormField, Icon, Card, Badge, Banner, Heading,
                         EmptyState)
-      lib/              API client (api.ts) and the React contexts — auth,
+    lib/                API client (api.ts) and the React contexts — auth,
                         alerts, messages, presence — plus the alert socket hook
     pages/              Route pages (Home, Login, Signup, Friends, Alerts,
                         Conversation, Profile, UserProfile, Terms, Privacy)
@@ -1322,6 +1322,7 @@ to describe what is actually held — a Google account identifier instead of a
 password hash, and the name and email address that Google shares on sign-in.
 Keeping a legal page accurate as the product changes is part of the work, not a
 one-off task at the start.
+
 ---
 
 ## 12. Resources & AI Usage
