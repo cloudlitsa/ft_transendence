@@ -119,15 +119,20 @@ export async function gdprRoutes(fastify: FastifyInstance) {
     //    already gone from the database, so reporting failure would be wrong
     //    and would stop the remaining files being cleaned up. Log and continue.
     for (const { filename } of doomed) {
-      await removeFile(ATTACHMENTS_DIR, filename).catch((err) =>
-        request.log.error({ err, filename }, "attachment file left behind"),
-      );
+    const ok = await removeFile(ATTACHMENTS_DIR, filename);
+      if (!ok) {
+        request.log.error({ filename }, "attachment file left behind");
+      }
     }
+
     if (user.avatarUrl?.startsWith(AVATAR_URL_PREFIX)) {
-      await removeFile(
+      const ok = await removeFile(
         PUBLIC_UPLOADS_DIR,
         user.avatarUrl.slice(AVATAR_URL_PREFIX.length),
-      ).catch((err) => request.log.error({ err }, "avatar file left behind"));
+      );
+      if (!ok) {
+        request.log.error({ filename: user.avatarUrl.slice(AVATAR_URL_PREFIX.length) }, "avatar file left behind");
+      }
     }
 
     // 7. Confirmation email (user data captured before the delete).
