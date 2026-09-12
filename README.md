@@ -269,7 +269,7 @@ ever sending a second check-in after closing the first; `WHERE status =
      https://console.cloud.google.com/apis/credentials
    - `GOOGLE_CALLBACK_URL` — `https://localhost/api/auth/google/callback`,
      which must also be listed as an Authorised redirect URI on that client.
- 
+
    Every key in `.env.example` needs a value.
 
 3. Generate a local TLS certificate. Everything reaches the app through an HTTPS
@@ -401,8 +401,8 @@ Everything the app does, and who built it. Module points are claimed in
 | **Attachments** | Attach an image or PDF to a message — client and server validation, byte-signature checking, progress bar, inline preview, access-controlled download, sender-only delete with a "removed" placeholder. | mosokina |
 | **Toast notifications** | Success, error and info toasts on every create, update and delete action, auto-dismissing after three seconds. | mosokina |
 | **Install and offline** | Installable to the home screen or desktop; the app shell loads from cache with no connection, and a banner tells the user live data is unavailable. | mosokina |
-| **Download my data** | A JSON export of everything the app holds about you, with the password hash omitted and internal filenames stripped. | mosokina, evmouka |
-| **Delete my account** | Confirmed erasure — by password, or by typing your own email address for Google-only accounts that have no password.
+| **Download my data** | A JSON export of the data the app holds about you — profile, friendships, alerts, acknowledgements, messages — with credentials (password hash, Google id) omitted and internal filenames stripped. | mosokina, evmouka |
+| **Delete my account** | Confirmed erasure — by password, or by typing your own email address for Google-only accounts that have no password. | mosokina, evmouka |
 | **Confirmation emails** | Both data operations send an email. Fire-and-forget, so a mail failure never blocks an export or a deletion. | mosokina |
 | **Design system** | Design tokens, a 15-glyph icon registry and ten reusable components, with the accessibility model built into the components rather than bolted on. | evmouka |
 | **Terms and Privacy** | Both pages written for this app rather than templated, linked from a global footer on every page, and revised as the product changed — for file attachments, then for password-less Google accounts. | mtocu |
@@ -681,23 +681,33 @@ error, and info variants, auto-dismissing after 3 seconds.
   app (`main.tsx`), a `useToast()` hook exposes `success` / `error` / `info`, and
   a container renders the toasts stacked in the corner — each schedules its own
   removal with a timer.
-- Wired into **all current create/update/delete actions** (the friends system in
-  `FriendsPage.tsx`): send request, accept, decline/cancel, unfriend — on both
-  success and failure.
-- **App-wide by design**: any future feature (alerts, chat, profile) fires a
-  notification with one line — `useToast().success(...)` — no new setup.
+- Wired into **every create/update/delete action in the app**, on both success
+  and failure:
+  - **Friends** (`FriendsPage.tsx`) — send request, accept, decline/cancel,
+    unfriend.
+  - **Alerts** (`AlertsPage.tsx`) — send a check-in, acknowledge, close.
+  - **Profile** (`ProfilePage.tsx`) — update profile, upload/remove avatar,
+    delete account (plus client-side file-type and size errors).
+  - **Chat** (`ConversationPage.tsx`) — send a message, delete an attachment,
+    reject a file that is the wrong type or too large.
+- **App-wide by design**: a feature fires a notification with one line —
+  `useToast().success(...)` — no new setup.
 
 **How to verify.**
 1. Log in (two users), go to Friends.
 2. Send a friend request → info toast; send to yourself → red error toast.
 3. From the other user: accept / decline / unfriend → green success toasts.
-4. Load `/friends` while logged out → red error toast ("Couldn't load friends: …").
+4. While logged in, stop the backend (`docker compose stop backend`) and reload
+   `/friends` → red error toast ("Couldn't load friends: …"); start it again with
+   `docker compose start backend`. (DevTools → Network → Offline works too.)
 
 **Scope note.** The subject asks for notifications on "all creation, update, and
-deletion actions." Friends is currently the only feature with such actions; the
-system is app-wide, so new features plug in via `useToast()` as they land. A
-real-time notification centre (bell) is out of scope — it needs WebSockets and
-is not required for this module.
+deletion actions." Every such action in the app — friends, alerts, profile,
+chat — fires one, and a new feature plugs in via `useToast()` with no extra
+setup. A persistent notification centre (a bell with a history of past
+notifications) is out of scope: toasts are immediate feedback on your own
+action, while live events from other users are already delivered over
+WebSockets by the real-time module.
 
 **Contributor.** mosokina
 
@@ -954,10 +964,11 @@ demand — the two core GDPR rights of access and erasure.
 - **Export** — `GET /api/account/export` gathers the user's own rows from all
   six tables (user, friendships, alerts, acknowledgements, messages,
   attachments) via scoped Prisma queries, and returns them as a downloadable
-  JSON file (`Content-Disposition` header). The user `select` **omits
-  `passwordHash`**, so the hash can never leak into an export. Attachments are
-  the ones on the user's own messages, with the internal `filename` (the stored
-  `<uuid>.<ext>`) stripped from each row.
+  JSON file (`Content-Disposition` header). The user `select` is an explicit
+  allow-list, so the credential columns — **`passwordHash` and `googleId`** —
+  can never leak into an export. Attachments are the ones on the user's own
+  messages, with the internal `filename` (the stored `<uuid>.<ext>`) stripped
+  from each row.
 - **Delete with confirmation** — `DELETE /api/account` confirms intent in one
   of two ways, depending on the account type:
   - **Password or linked account** — re-enter the password (validated with
@@ -972,8 +983,8 @@ demand — the two core GDPR rights of access and erasure.
 - **Files on disk** — the cascade removes rows, not files. So the route
   collects the attachment filenames *before* the delete — from messages the
   user sent and from every message in their own check-ins — and unlinks them
-  from `/app/private` afterwards. An uploaded avatar is removed from
-  `/app/uploads` too.
+  from `/app/private/attachments` afterwards. An uploaded avatar is removed
+  from `/app/uploads` too.
 - **Confirmation emails** — both operations send a notification via a reusable
   helper (`backend/src/lib/mail.ts`, `sendMail(to, subject, body)` over SMTP,
   configured from env vars). Sends are fire-and-forget: a mail failure is logged
@@ -992,17 +1003,20 @@ demand — the two core GDPR rights of access and erasure.
    The mkcert CA is in the system trust store, so curl accepts the certificate
    without `-k`.
 2. **Export** — `curl -b cookies.txt https://localhost/api/account/export` returns
-   all six sections as JSON, with **no `passwordHash`** field and no `filename`
-   in `attachments`.
-3. **Delete, password account** — no password → `400`; wrong password → `403`;
-   correct password → `{"ok":true}`. Afterwards any guarded route returns `401`
-   "Account no longer exists".
+   all six sections as JSON, with **no `passwordHash`**, no `googleId`, and no
+   `filename` in `attachments`.
+3. **Delete, password account** — `curl -b cookies.txt -X DELETE
+   https://localhost/api/account -H 'Content-Type: application/json'` with
+   `-d '{}'` → `400`; `-d '{"password":"wrong"}'` → `403`;
+   `-d '{"password":"secret123"}'` → `{"ok":true}`. Afterwards any guarded route
+   returns `401` "Account no longer exists".
 4. **Delete, Google-only account** — sign in with Google, open *Profile* →
    *Delete account* → the form asks for your email, not a password. Wrong
    email → `403`; correct email → the account is deleted.
+   Steps 3-4 delete the account, so sign up again before the rest.
 5. **Files** — upload an avatar and send an image in a chat, then run
-   `docker compose exec backend ls /app/private /app/uploads` before and after
-   deleting the account → both files are gone.
+   `docker compose exec backend ls /app/private/attachments /app/uploads`
+   before and after deleting the account → both files are gone.
 6. **Cascade** — in psql, confirm no rows remain for the deleted user and that
    the foreign keys carry `ON DELETE CASCADE`.
 7. **Emails** — open `localhost:8025`; export and delete each produce a
@@ -1258,7 +1272,7 @@ frontend/               React + TypeScript app
       ui/               Design system components (Button, Spinner, Input,
                         FormField, Icon, Card, Badge, Banner, Heading,
                         EmptyState)
-      lib/              API client (api.ts) and the React contexts — auth,
+    lib/                API client (api.ts) and the React contexts — auth,
                         alerts, messages, presence — plus the alert socket hook
     pages/              Route pages (Home, Login, Signup, Friends, Alerts,
                         Conversation, Profile, UserProfile, Terms, Privacy)
@@ -1308,6 +1322,7 @@ to describe what is actually held — a Google account identifier instead of a
 password hash, and the name and email address that Google shares on sign-in.
 Keeping a legal page accurate as the product changes is part of the work, not a
 one-off task at the start.
+
 ---
 
 ## 12. Resources & AI Usage
