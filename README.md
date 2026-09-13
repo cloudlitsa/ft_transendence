@@ -321,8 +321,16 @@ ever sending a second check-in after closing the first; `WHERE status =
    a port, so there is no unencrypted route into the app.
 
 8. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
+
+   Linux
    ```
    google-chrome --incognito --user-data-dir=/tmp/session1 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 https://localhost &
+   ```
+   macOS
+   ```
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir=/tmp/session1 https://localhost &
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir=/tmp/session2 https://localhost &
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --user-data-dir=/tmp/session3 https://localhost &
    ```
 
 To stop: `docker compose down`
