@@ -16,7 +16,7 @@ A web app for sending check-in alerts to a small circle of trusted friends.
 6. [Instructions](#6-instructions)
 7. [Features List](#7-features-list)
 8. [Modules](#8-modules)
-   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--web--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt)
+   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--web--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt) · [Multi browsers](#multiple-browser-support---web--minor--1-pt)
 9. [Individual Contributions](#9-individual-contributions)
 10. [Project Structure](#10-project-structure)
 11. [Legal Pages](#11-legal-pages)
@@ -291,36 +291,36 @@ ever sending a second check-in after closing the first; `WHERE status =
    `certs/`, which is **gitignored** — each machine generates its own, and a
    private key must never enter the repository.
 
-4. Start everything with one command:
+4. *(Optional, for editor support)* Install dependencies on the host too:
+   ```
+   cd frontend && npm install && cd ../backend && npm install && npx prisma generate && cd ..
+   ```
+   The containers have their own `node_modules`, so the app runs fine without
+   this. But your editor's TypeScript server runs on the *host*, and without
+   local packages it reports dozens of phantom errors ("Cannot find module
+   'react'"). Nothing is broken — the editor just can't see the dependencies.
+
+5. Start everything with one command:
    ```
    docker compose up -d --build
    ```
 
-5. Create the database tables:
+6. Create the database tables:
    ```
    docker compose exec backend npx prisma migrate deploy
    ```
    The database starts empty. Until you run this, the app will start but
    every request that touches the database will fail.
 
-6. Open the app: **https://localhost**
+7. Open the app: **https://localhost**
 
    Plain HTTP is redirected to HTTPS. No container other than the proxy publishes
    a port, so there is no unencrypted route into the app.
 
-7. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
+8. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
    ```
    google-chrome --incognito --user-data-dir=/tmp/session1 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 https://localhost &
    ```
-
-8. *(Optional, for editor support)* Install dependencies on the host too:
-   ```
-   cd frontend && npm install && cd ../backend && npm install && cd ..
-   ```
-   The containers have their own `node_modules`, so the app runs fine without
-   this. But your editor's TypeScript server runs on the *host*, and without
-   local packages it reports dozens of phantom errors ("Cannot find module
-   'react'"). Nothing is broken — the editor just can't see the dependencies.
 
 To stop: `docker compose down`
 
@@ -419,10 +419,12 @@ a smaller set that all work beats a larger set with a weak link.
 | 10 | GDPR compliance | Data and Analytics | Minor | 1 | Complete |
 | | **Required total** | | | **14** | |
 | 11 | OAuth | User Management | Minor | 1 | Complete |
-| | **With OAuth** | | | **15** | |
+| 12 | Multiple browser support | Web | Minor | 1 | Complete |
+| | **With OAuth and multiple browser support** | | | **16** |
+
 
 **Point calculation.** 4 Major x 2 = 8, plus 6 Minor x 1 = 6. **14 points.**
-With OAuth, 7 Minor x 1 = 7, so **15**.
+With OAuth and Multiple Browser support: 8 Minor x 1 = 8, so **16**.
 
 ### Why these modules
 
@@ -1122,7 +1124,10 @@ required fourteen. It is merged, verified end to end, and shipped with the
 Google-user deletion path.
 
 **Contributor.** aaladeok
+   
+### Multiple browser support - Web · Minor · 1 pt
 
+**What it is.** Full functional and visual compatibility across multiple major modern browsers, ensuring the application behaves identically on at least two distinct rendering engines (Google Chrome / Microsoft Edge / Mozilla Firefox / Opera). In a real-time check-in app, users and their trusted circle do not all use the same browser.
 
 ---
 
