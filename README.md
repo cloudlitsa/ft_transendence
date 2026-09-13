@@ -16,7 +16,7 @@ A web app for sending check-in alerts to a small circle of trusted friends.
 6. [Instructions](#6-instructions)
 7. [Features List](#7-features-list)
 8. [Modules](#8-modules)
-   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--web--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt)
+   - [Frameworks](#frameworks-for-frontend-and-backend--web--major--2-pts) · [WebSockets](#real-time-websockets--web--major--2-pts) · [Standard User Management](#standard-user-management--user-management--major--2-pts) · [User Interaction](#user-interaction--web--major--2-pts) · [ORM](#orm--web--minor--1-pt) · [Notifications](#notification-system--web--minor--1-pt) · [PWA](#progressive-web-app-pwa--web--minor--1-pt) · [Design system](#custom-design-system--web--minor--1-pt) · [File upload](#file-upload-and-management--web--minor--1-pt) · [GDPR](#gdpr-compliance--data-and-analytics--minor--1-pt) · [OAuth](#oauth--user-management--minor--1-pt) · [Multi browsers](#multiple-browser-support---web--minor--1-pt)
 9. [Individual Contributions](#9-individual-contributions)
 10. [Project Structure](#10-project-structure)
 11. [Legal Pages](#11-legal-pages)
@@ -419,10 +419,12 @@ a smaller set that all work beats a larger set with a weak link.
 | 10 | GDPR compliance | Data and Analytics | Minor | 1 | Complete |
 | | **Required total** | | | **14** | |
 | 11 | OAuth | User Management | Minor | 1 | Complete |
-| | **With OAuth** | | | **15** | |
+| 12 | Multiple browser support | Web | Minor | 1 | Complete |
+| | **With OAuth** | | | **16** | |
+
 
 **Point calculation.** 4 Major x 2 = 8, plus 6 Minor x 1 = 6. **14 points.**
-With OAuth, 7 Minor x 1 = 7, so **15**.
+With OAuth and Multiple Browser support: 8 Minor x 1 = 8, so **16**.
 
 ### Why these modules
 
@@ -1122,7 +1124,10 @@ required fourteen. It is merged, verified end to end, and shipped with the
 Google-user deletion path.
 
 **Contributor.** aaladeok
+   
+### Multiple browser support - Web · Minor · 1 pt
 
+**What it is.** Full functional and visual compatibility across multiple major modern browsers, ensuring the application behaves identically on at least two distinct rendering engines (Google Chrome / Microsoft Edge / Mozilla Firefox / Opera). In a real-time check-in app, users and their trusted circle do not all use the same browser.
 
 ---
 
