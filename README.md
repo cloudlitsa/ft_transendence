@@ -263,7 +263,10 @@ ever sending a second check-in after closing the first; `WHERE status =
    - `POSTGRES_PASSWORD` — any strong password. Avoid `@`, `:`, `/` and `#`:
      the password is interpolated into `DATABASE_URL`, and those characters
      break the connection string with a misleading error about the host.
-   - `JWT_SECRET` — generate one with: `openssl rand -base64 48`
+   - `JWT_SECRET` — generate one with: 
+      ```
+      openssl rand -base64 48
+      ```
    - `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` — from a Google Cloud OAuth
      2.0 Client ID (Web application). Create one at
      https://console.cloud.google.com/apis/credentials
