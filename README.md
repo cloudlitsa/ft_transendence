@@ -291,36 +291,36 @@ ever sending a second check-in after closing the first; `WHERE status =
    `certs/`, which is **gitignored** — each machine generates its own, and a
    private key must never enter the repository.
 
-4. Start everything with one command:
+4. *(Optional, for editor support)* Install dependencies on the host too:
+   ```
+   cd frontend && npm install && cd ../backend && npm install && npx prisma generate && cd ..
+   ```
+   The containers have their own `node_modules`, so the app runs fine without
+   this. But your editor's TypeScript server runs on the *host*, and without
+   local packages it reports dozens of phantom errors ("Cannot find module
+   'react'"). Nothing is broken — the editor just can't see the dependencies.
+
+5. Start everything with one command:
    ```
    docker compose up -d --build
    ```
 
-5. Create the database tables:
+6. Create the database tables:
    ```
    docker compose exec backend npx prisma migrate deploy
    ```
    The database starts empty. Until you run this, the app will start but
    every request that touches the database will fail.
 
-6. Open the app: **https://localhost**
+7. Open the app: **https://localhost**
 
    Plain HTTP is redirected to HTTPS. No container other than the proxy publishes
    a port, so there is no unencrypted route into the app.
 
-7. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
+8. To test multiple users in localhost, in incognito mode, run this code in  a separate terminal
    ```
    google-chrome --incognito --user-data-dir=/tmp/session1 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session2 https://localhost & google-chrome --incognito --user-data-dir=/tmp/session3 https://localhost &
    ```
-
-8. *(Optional, for editor support)* Install dependencies on the host too:
-   ```
-   cd frontend && npm install && cd ../backend && npm install && cd ..
-   ```
-   The containers have their own `node_modules`, so the app runs fine without
-   this. But your editor's TypeScript server runs on the *host*, and without
-   local packages it reports dozens of phantom errors ("Cannot find module
-   'react'"). Nothing is broken — the editor just can't see the dependencies.
 
 To stop: `docker compose down`
 
