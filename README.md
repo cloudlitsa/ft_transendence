@@ -420,7 +420,7 @@ a smaller set that all work beats a larger set with a weak link.
 | | **Required total** | | | **14** | |
 | 11 | OAuth | User Management | Minor | 1 | Complete |
 | 12 | Multiple browser support | Web | Minor | 1 | Complete |
-| | **With OAuth** | | | **16** | |
+| | **With OAuth and multiple browser support** | | | **16** |
 
 
 **Point calculation.** 4 Major x 2 = 8, plus 6 Minor x 1 = 6. **14 points.**
